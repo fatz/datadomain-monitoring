@@ -4,11 +4,11 @@
 
 =head1 NAME
 
- check_datadomain - Checks Datadomain states via snmp
+check_datadomain - Checks Datadomain states via snmp
 
 =head1 DESCRIPTION
 
- This plugins monitors some states of your datadomain via snmp. It can monitor for example the state of the PSUs, NVRAM, disks and so on.
+This plugins monitors some states of your datadomain via snmp. It can monitor for example the state of the PSUs, NVRAM, disks and so on.
  
 =head1 VERSION
 
@@ -16,7 +16,7 @@ Version 0.1r1
 
 =head1 SYNOPSIS
 
- check_datadomain -H <hostname> [-C <COMMUNITY>] [-p <port>] [-P <snmp-version>] -m <method> ( FSSPACE [-w <warning % USED>] [-c <critical % USED>] | IFSTATE -i <interface id>)
+check_datadomain -H <hostname> [-C <COMMUNITY>] [-p <port>] [-P <snmp-version>] -m <method> ( FSSPACE [-w <warning % USED>] [-c <critical % USED>] | IFSTATE -i <interface id>)
 
 =head1 OPTIONS
 
@@ -24,51 +24,71 @@ Version 0.1r1
 
 =item -H <hostname> (required)
 
- Define the hostname
+Define the hostname
 
 =item -C <community> (optional)
 
- Optional community string for SNMP communication (default: public)
+Optional community string for SNMP communication (default: public)
 
 =item -p, --port <portnumber>
 
-     Port number (default: 161)
+Port number (default: 161)
 
 =item -P, --protocol <protocol>
 
-     SNMP protocol version [1,2c]
+SNMP protocol version [1,2c]
 
 =item -m, --method <checkmethod>
 
-     check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE
-         PSU: State of all Powersupplies
-         NVRAM: NVRAM battery state
-         FAN: Fan state of all enclosures
-         DISKSTATE: disk states
-         FSSPACE: used filesystem space. -w for waring % -c for critical %
-             Defaults: -w 75 -c 90
-         IFSTATE: Checks if the given interfaces are up. e.g.:-i 2,3
-             do a snmpwalk on IF-MIB to get the interface ids
+check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE
+
+=over 1
+
+=item PSU: State of all Powersupplies
+
+=item NVRAM: NVRAM battery state
+
+=item FAN: Fan state of all enclosures
+
+=item DISKSTATE: disk states
+
+=item FSSPACE: used filesystem space. -w for waring % -c for critical %
+
+=over 2
+
+=item Defaults: -w 75 -c 90
+
+=back
+
+=item IFSTATE: Checks if the given interfaces are up. e.g.:-i 2,3
+
+=over 2
+
+=item do a snmpwalk on IF-MIB to get the interface ids
+
+=back
+
+=back
 
 =item -i, --iface <if ids>
 
-     comma seperated list of interface ids that should be up (use snmpwalk to get them)
+comma seperated list of interface ids that should be up (use snmpwalk to get them)
 
 =item -w, --warning <number>
 
-     warning filesystem space usage in %
+warning filesystem space usage in %
 
 =item -c, --critical <number>
 
-     critical filesystem space usage in %
+critical filesystem space usage in %
 
 =item -h, --help
 
-     Print detailed help screen. You also can use perldoc check_datadomain 
+Print detailed help screen. You also can use perldoc check_datadomain 
 
 =item -V, --version
 
-     Print version information
+Print version information
 
 =back
 
