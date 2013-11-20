@@ -1,0 +1,540 @@
+#!/usr/bin/env perl
+#
+=pod
+
+=head1 NAME
+
+ check_datadomain - Checks Datadomain states via snmp
+
+=head1 DESCRIPTION
+
+ This plugins monitors some states of your datadomain via snmp. It can monitor for example the state of the PSUs, NVRAM, disks and so on.
+ 
+=head1 VERSION
+
+Version 0.1r1
+
+=head1 SYNOPSIS
+
+ check_datadomain -H <hostname> [-C <COMMUNITY>] [-p <port>] [-P <snmp-version>] -m <method> ( FSSPACE [-w <warning % USED>] [-c <critical % USED>] | IFSTATE -i <interface id>)
+
+=head1 OPTIONS
+
+=over 4
+
+=item -H <hostname> (required)
+
+ Define the hostname
+
+=item -C <community> (optional)
+
+ Optional community string for SNMP communication (default: public)
+
+=item -p, --port <portnumber>
+
+     Port number (default: 161)
+
+=item -P, --protocol <protocol>
+
+     SNMP protocol version [1,2c]
+
+=item -m, --method <checkmethod>
+
+     check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE
+         PSU: State of all Powersupplies
+         NVRAM: NVRAM battery state
+         FAN: Fan state of all enclosures
+         DISKSTATE: disk states
+         FSSPACE: used filesystem space. -w for waring % -c for critical %
+             Defaults: -w 75 -c 90
+         IFSTATE: Checks if the given interfaces are up. e.g.:-i 2,3
+             do a snmpwalk on IF-MIB to get the interface ids
+
+=item -i, --iface <if ids>
+
+     comma seperated list of interface ids that should be up (use snmpwalk to get them)
+
+=item -w, --warning <number>
+
+     warning filesystem space usage in %
+
+=item -c, --critical <number>
+
+     critical filesystem space usage in %
+
+=item -h, --help
+
+     Print detailed help screen. You also can use perldoc check_datadomain 
+
+=item -V, --version
+
+     Print version information
+
+=back
+
+=head1 AUTHOR
+
+Jan Ulferts <jan.ulferts@xing.com>
+
+=head1 KNOWN ISSUES
+
+currently not
+
+=head1 BUGS
+
+of course not
+
+=head1 REQUIRES
+
+=over 1
+
+=item Perl 5
+
+=item Getopt::Long
+
+=item Net::SNMP
+
+=back
+
+=head1 LICENSE
+
+The MIT License (MIT)
+
+Copyright (c) 2013 Jan Ulferts
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+=head1 HISTORY
+
+=over 1
+
+=item 23.01.2013: Version 0.1
+
+=item 20.11.2013: Version 0.1r1 Added some documentation for publishing
+
+=back
+
+=cut
+ 
+use strict;
+use Getopt::Long;
+use vars qw($PROGNAME);
+use Net::SNMP;
+ 
+sub print_help ();
+sub print_usage ();
+
+#prevent from using utils.pm
+my $TIMEOUT = 15;
+my %ERRORS=('OK'=>0,'WARNING'=>1,'CRITICAL'=>2,'UNKNOWN'=>3,'DEPENDENT'=>4);
+ 
+my ($opt_V, $opt_h, $opt_C, $opt_H, $opt_p, $opt_w, $opt_c, $opt_t, $opt_P,$opt_m, $opt_i);
+my ($result, $message, $age, $size, $st, $oids, @oid, @warning, @critical ,$key, $value);
+ 
+$PROGNAME="check_snmp_datadomain";
+ 
+$opt_C="public";
+$opt_H="";
+$opt_p=161;
+$opt_t="10";
+$opt_P="1;";
+ 
+Getopt::Long::Configure('bundling');
+GetOptions(
+        "V"   => \$opt_V, "version"         => \$opt_V,
+        "h"   => \$opt_h, "help"            => \$opt_h,
+        "C=s" => \$opt_C, "community"       => \$opt_C,
+        "H=s" => \$opt_H, "hostname"        => \$opt_H,
+        "p=i" => \$opt_p, "port"            => \$opt_p,
+        "w=s" => \$opt_w, "warning=s"       => \$opt_w,
+        "c=s" => \$opt_c, "critical=s"      => \$opt_c,
+        "m=s" => \$opt_m, "method=s"        => \$opt_m,
+        "i=s" => \$opt_i, "iface=s"         => \$opt_i,
+        "t=i" => \$opt_t, "timeout"         => \$opt_t,
+        "P=s" => \$opt_P, "protocol=s"      => \$opt_P);
+    
+#OIDs
+$oids = {
+    enclosures  => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.1",
+    psu         => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.4",
+    nvram       => ".1.3.6.1.4.1.19746.1.2.3.1.1.3.1",
+    fanstate    => ".1.3.6.1.4.1.19746.1.1.3.1.1.1.6",
+    fanname     => ".1.3.6.1.4.1.19746.1.1.3.1.1.1.4",
+    diskstate   => ".1.3.6.1.4.1.19746.1.6.3.1.1.14",
+    diskserial  => ".1.3.6.1.4.1.19746.1.6.1.1.1.6",
+    diskmodel   => ".1.3.6.1.4.1.19746.1.6.1.1.1.4",
+    ifspeed     => ".1.3.6.1.2.1.31.1.1.1.15",
+    ifname      => ".1.3.6.1.2.1.31.1.1.1.1",
+    fsname      => ".1.3.6.1.4.1.19746.1.3.2.1.1.3",
+    fssize      => ".1.3.6.1.4.1.19746.1.3.2.1.1.4",
+    fsused      => ".1.3.6.1.4.1.19746.1.3.2.1.1.5",
+    fsavail     => ".1.3.6.1.4.1.19746.1.3.2.1.1.6",
+    fsperc      => ".1.3.6.1.4.1.19746.1.3.2.1.1.7",
+};
+
+if ($opt_t) {
+        $TIMEOUT=$opt_t;
+}
+ 
+# Just in case of problems, let's not hang Nagios
+$SIG{'ALRM'} = sub {
+        print "UNKNOWN - Plugin Timed out\n";
+        exit $ERRORS{"UNKNOWN"};
+};
+alarm($TIMEOUT);
+ 
+if ($opt_V) {
+        exit $ERRORS{'OK'};
+}
+ 
+if ($opt_h) {
+        print_help();
+        exit $ERRORS{'OK'};
+}
+ 
+if (! $opt_H) {
+        print "No Hostname specified\n\n";
+        print_usage();
+        exit $ERRORS{'UNKNOWN'};
+}
+ 
+sub print_usage () {
+        print "Usage:\n";
+        print "  $PROGNAME -H <hostname> [-C <COMMUNITY>] [-p <port>] [-P <snmp-version>] -m <method> ( FSSPACE [-w <warning % USED>] [-c <critical % USED>] | IFSTATE -i <interface id>) \n";
+        print "  $PROGNAME [-h | --help]\n";
+        print "  $PROGNAME [-V | --version]\n";
+        print "\n\nOptions:\n";
+        print "  -H, --hostname\n";
+        print "     Host name or IP Address\n";
+        print "  -C, --community\n";
+        print "     Optional community string for SNMP communication\n";
+        print "     (default is \"public\")\n";
+        print "  -p, --port\n";
+        print "     Port number (default: 161)\n";
+        print "  -P, --protocol\n";
+        print "     SNMP protocol version [1,2c]\n";
+        print "  -m, --method\n";
+        print "     check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE\n";
+        print "         PSU: State of all Powersupplies\n";
+        print "         NVRAM: NVRAM battery state\n";
+        print "         FAN: Fan state of all enclosures\n";
+        print "         DISKSTATE: disk states\n";
+        print "         FSSPACE: used filesystem space. -w for waring % -c for critical %\n";
+        print "             Defaults: -w 75 -c 90\n";
+        print "         IFSTATE: Checks if the given interfaces are up. e.g.:-i 2,3\n";
+        print "             do a snmpwalk on IF-MIB to get the interface ids\n";
+        print "  -i, --iface\n";
+        print "     comma seperated list of interface ids that should be up (use snmpwalk to get them)\n";
+        print "  -w, --warning\n";
+        print "     warning filesystem space usage in %\n";
+        print "  -c, --critical\n";
+        print "     critical filesystem space usage in %\n";
+        print "  -h, --help\n";
+        print "     Print detailed help screen\n";
+        print "  -V, --version\n";
+        print "     Print version information\n\n";
+ 
+}
+ 
+sub print_help () {
+        print "Copyright (c) 2013 XING AG - Jan-Henning Ulferts <jan.ulferts\@xing.com>\n\n";
+        print_usage();
+        print "\n";
+        print "  host  Give me some Host to work with\n";
+        print "  <help>  This output\n";
+        print "\n";
+}
+
+my $powerModuleStatus = {
+    0 => "absent",
+    1 => "ok",
+    2 => "failed",
+    3 => "faulty",
+    4 => "acnone",
+    99=> "unknown",
+};
+
+my $nvramBatteryStatus = {
+    0 => 'ok',
+    1 => 'disabled',
+    2 => 'discharged',
+    3 => 'softdisabled',
+};
+
+my $fanStatus = {
+    0 => 'notfound',
+    1 => 'ok',
+    2 => 'fail',
+};
+
+my $diskState = {
+    1 => 'ok',
+    2 => 'unknown',
+    3 => 'absent',
+    4 => 'failed',
+};
+
+my ($session, $error) = Net::SNMP->session(Hostname => $opt_H, Community => $opt_C);
+    print "Session Error: $error" && exit $ERRORS{'UNKNOWN'} unless ($session);
+
+my $t = $session->get_table($oids->{enclosures});
+
+my $r;
+foreach (keys %{$t}) {
+    my $v = $t->{$_};
+    $r->{$v} = 1;
+}
+my @enclosures = keys %{$r};
+
+my ( $output, $out );
+if ($opt_m eq "PSU") {
+    my $state = $ERRORS{'OK'};
+    foreach my $enclosure (sort @enclosures) {
+        my $res = $session->get_table($oids->{psu}.".".$enclosure);
+        $output->{$enclosure}->{1} = $res->{$oids->{psu}.".".$enclosure."."."1"};
+        $output->{$enclosure}->{2} = $res->{$oids->{psu}.".".$enclosure."."."2"};
+        foreach my $ps (keys %{$output->{$enclosure}}) {
+            my $val = $output->{$enclosure}->{$ps};
+            if ( $val == 4 || $val == 0 ) {
+                $state = $ERRORS{'WARNING'};
+            } elsif ( $val == 2 || $val == 3 ) {
+                $state = $ERRORS{'CRITICAL'};
+            } elsif ( $val == 1 ){
+                $state = $ERRORS{'OK'};
+            } else {
+                $state = $ERRORS{'UNKNOWN'};
+            }
+            push(@{$out->{$state}}, sprintf("%s - PS%i from Enclosure %i is in state %s", uc(state_reverse($state)), $ps, $enclosure, $powerModuleStatus->{$val}));
+        }
+    }
+    if ($out->{$ERRORS{'CRITICAL'}}) {
+        my $o = sprintf("CRITICAL - %i PSUs in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
+        foreach (@{$out->{$ERRORS{'CRITICAL'}}}) {
+            $o .= $_."\n";
+        }
+        print $o;
+        exit $ERRORS{'CRITICAL'};
+    } elsif ($out->{$ERRORS{'WARNING'}}) {
+        my $o = sprintf("WARNING - %i PSUs in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}});
+        foreach (@{$out->{$ERRORS{'WARNING'}}}) {
+            $o .= $_."\n";
+        }
+        print $o;
+        exit $ERRORS{'WARNING'};
+    } elsif ($out->{$ERRORS{'OK'}}) {
+        my $o = sprintf("OK - %i PSUs in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
+        foreach (@{$out->{$ERRORS{'OK'}}}) {
+            $o .= $_."\n";
+        }
+        print $o;
+        exit $ERRORS{'OK'};
+    } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
+        my $o = sprintf("OK - %i PSUs in ok state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
+        foreach (@{$out->{$ERRORS{'UNKNOWN'}}}) {
+            $o .= $_."\n";
+        }
+        print $o;
+        exit $ERRORS{'UNKNOWN'};
+    } else {
+        print "UNKNOWN - plugin in unknown state\n";
+        exit $ERRORS{'UNKNOWN'};
+    }
+} elsif ($opt_m eq "NVRAM") {
+    my @req;
+    foreach my $enclosure (sort @enclosures) {
+        push(@req, $oids->{nvram}.".".$enclosure);
+    }
+    my $res = $session->get_request(@req);
+    foreach my $enclosure (@enclosures) {
+        my $state;
+        my $val = $res->{$oids->{nvram}.".".$enclosure};
+        if ( $val == 0 ) {
+            $state = $ERRORS{'OK'};
+        } elsif ( $val > 0 && $val < 3 ) {
+            $state = $ERRORS{'CRITICAL'};
+        } else {
+            print "UNKNOWN - plugin in unknown state\n";
+            exit $ERRORS{'UNKNOWN'};
+        }
+        push(@{$out->{$state}}, sprintf("%s - NVRAM battery in enclosure %i is in ", uc(state_reverse($state)), $enclosure, $nvramBatteryStatus->{$val}))
+    }
+    if ($out->{$ERRORS{'CRITICAL'}}) {
+        my $o = sprintf("CRITICAL - %i nvram batteries in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
+        foreach (@{$out->{$ERRORS{'CRITICAL'}}}) {
+            $o .= $_."\n";
+        }
+        print $o;
+        exit $ERRORS{'CRITICAL'};
+    } elsif ($out->{$ERRORS{'OK'}}) {
+        my $o = sprintf("OK - %i nvram batteries in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
+        foreach (@{$out->{$ERRORS{'OK'}}}) {
+            $o .= $_."\n";
+        }
+        print $o;
+        exit $ERRORS{'OK'};
+    } else {
+        print "UNKNOWN - plugin in unknown state\n";
+        exit $ERRORS{'UNKNOWN'};
+    }
+} elsif ($opt_m eq "FAN") {
+    my $state=$ERRORS{'OK'};
+    $result = {state => $session->get_table($oids->{'fanstate'}), name => $session->get_table($oids->{'fanname'}),};
+    my $r;
+    foreach my $enclosure (sort @enclosures) {
+        my $reg = $oids->{'fanstate'}."\.".$enclosure."\.[0-9]+";
+        my @enres = grep { $_ =~ m/$reg/} keys %{$result->{state}};
+        foreach (sort @enres) {
+            $_ =~m/^.*\.([0-9]+)$/;
+            my $myid = $enclosure.".".$1;
+            my $fanstate = $result->{state}->{$oids->{'fanstate'}.".".$myid};
+
+            if ($fanstate == 1) {
+                $state = $ERRORS{'OK'};
+            } elsif ($fanstate == 0 or $fanstate == 2) {
+                $state = $ERRORS{'CRITICAL'};
+            } else {
+                print "UNKNOWN - plugin in unknown state\n";
+                exit $ERRORS{'UNKNOWN'};
+            }
+            push(@{$out->{$state}},sprintf("%s - Enclosure %i, Fan %s: %s",uc(state_reverse($state)),$enclosure,$result->{name}->{$oids->{'fanname'}.".".$myid},$fanStatus->{$fanstate}));
+        }
+    }
+    if ($state == $ERRORS{'CRITICAL'}) {
+        printf "CRITICAL - %i fans in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
+        print join("\n",@{$out->{$state}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'CRITICAL'};
+    } else {
+        printf "OK - %i fans ok\n", scalar @{$out->{$ERRORS{'OK'}}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+        exit $ERRORS{'OK'};
+    }
+} elsif ($opt_m eq "DISKSTATE") {
+    my $state=$ERRORS{'OK'};
+    $result = {state => $session->get_table($oids->{'diskstate'}), serial => $session->get_table($oids->{'diskserial'}), model => $session->get_table($oids->{'diskmodel'})};
+    my $r;
+    foreach my $enclosure (sort @enclosures) {
+        my $reg = $oids->{'diskstate'}."\.".$enclosure."\.[0-9]+";
+        my @enres = grep { $_ =~ m/$reg/} keys %{$result->{state}};
+        foreach (sort @enres) {
+            $_ =~m/^.*\.([0-9]+)$/;
+            my $myid = $enclosure.".".$1;
+            my $diskstate = $result->{state}->{$oids->{'diskstate'}.".".$myid};
+
+            if ($diskstate == 1) {
+                $state = $ERRORS{'OK'};
+            } elsif ($diskstate == 3 or $diskstate == 4) {
+                $state = $ERRORS{'CRITICAL'};
+            } elsif ($diskstate == 2) {
+                $state = $ERRORS{'UNKNOWN'};
+            } else {
+                print "UNKNOWN - plugin in unknown state\n";
+                exit $ERRORS{'UNKNOWN'};
+            }
+            push(@{$out->{$state}},sprintf("%s - Enclosure %i, Disk %s, S/N %s: %s",uc(state_reverse($state)),$enclosure,$result->{model}->{$oids->{'diskmodel'}.".".$myid},$result->{serial}->{$oids->{'diskserial'}.".".$myid},$diskState->{$diskstate}));
+        }
+    }
+    if ($state == $ERRORS{'CRITICAL'}) {
+        printf "CRITICAL - %i disks in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
+        print join("\n",@{$out->{$state}})."\n";
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'CRITICAL'};
+    } elsif ($state == $ERRORS{'UNKNOWN'}) {
+        printf "WARNING - %i disks in unknown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}};
+        print join("\n",@{$out->{$state}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'WARNING'};
+    } else {
+        printf "OK - %i disks ok\n", scalar @{$out->{$ERRORS{'OK'}}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+        exit $ERRORS{'OK'};
+    }
+} elsif ($opt_m eq "IFSTATE") {
+    unless ($opt_i && $opt_i=~m/^[0-9]+(,[0-9]+)*$/) {
+        print "UNKNOWN - please enter a numeric interface id or list.\n";
+        exit $ERRORS{'UNKNOWN'};
+    } else {
+        my @interfaces = split(',',$opt_i);
+        my ($state);
+        foreach (@interfaces) {
+            if ($result = $session->get_request(($oids->{'ifname'}.".".$_,$oids->{'ifspeed'}.".".$_))) {
+                $state = ($result->{$oids->{'ifspeed'}.".".$_} > 0) ? $ERRORS{'OK'} : $ERRORS{'CRITICAL'};
+                push(@{$out->{$state}}, sprintf("%s - Interface %s is at speed %iG", uc(state_reverse($state)), $result->{$oids->{'ifname'}.".".$_}, $result->{$oids->{'ifspeed'}.".".$_}/1000));
+            } else {
+                print "UNKNOWN - plugin in unknown state check the interface id\n";
+                exit $ERRORS{'UNKNOWN'};
+            }
+        }
+        if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
+            printf "CRITICAL - %i interfaces down\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
+            print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
+            print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+            exit $ERRORS{'CRITICAL'};
+        } else {
+            printf "OK - %i interfaces up\n", scalar @{$out->{$ERRORS{'OK'}}};
+            print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+        }
+    }
+} elsif ($opt_m eq "FSSPACE") {
+    my $crit = $opt_c || "90";
+    my $warn = $opt_w || "75";
+    my $state;
+    my @fsid = qw/1 2 4/;
+    my @o = map { ( $oids->{fsname}.".".$_, $oids->{fssize}.".".$_, $oids->{fsused}.".".$_, $oids->{fsavail}.".".$_, $oids->{fsperc}.".".$_) } @fsid;
+    $result = $session->get_request(@o);
+
+    foreach (@fsid) {
+        if ($result->{$oids->{fsperc}.".".$_} >= $crit) {
+            $state = $ERRORS{'CRITICAL'};
+        } elsif ($result->{$oids->{fsperc}.".".$_} >= $warn) {
+            $state = $ERRORS{'WARNING'};
+        } elsif ($result->{$oids->{fsperc}.".".$_} >= 0) {
+            $state = $ERRORS{'OK'};
+        } else {
+            print "UNKNOWN - plugin in unknown state: filesystem used in perc <0\n";
+            exit $ERRORS{'UNKNOWN'};
+        }
+        push(@{$out->{$state}}, sprintf("%s - Filesystem %s filled %i%% %4.2fG available", uc(state_reverse($state)), $result->{$oids->{fsname}.".".$_}, $result->{$oids->{fsperc}.".".$_},$result->{$oids->{fsavail}.".".$_}));
+    }
+    if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
+        printf "CRITICAL - %i filesystems in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
+        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n" if $out->{$ERRORS{'WARNING'}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'CRITICAL'};
+    } elsif (defined $out->{$ERRORS{'WARNING'}} && scalar @{$out->{$ERRORS{'WARNING'}}} > 0) {
+        printf "WARNING - %i filesystems in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}};
+        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'WARNING'};
+    } else {
+        printf "OK - %i filesystems ok\n", scalar @{$out->{$ERRORS{'OK'}}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+    }
+} else {
+    print "please enter a valid method\n";
+    print_usage();
+    exit $ERRORS{'UNKNOWN'};
+}
+
+sub state_reverse {
+    my $state = shift;
+    my @s = qw/ok warning critical unknown/;
+    return $s[$state];
+}
