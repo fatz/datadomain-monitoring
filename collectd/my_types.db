@@ -1,0 +1,3 @@
+dd_space size:GAUGE:0:U used:GAUGE:0:U available:GAUGE:0:U
+dd_systat cpuAvgPercentageBusy:GAUGE:0:100 cpuMaxPercentageBusy:GAUGE:0:100 nfsOpsPerSecond:GAUGE:0:U nfsIdlePercentage:GAUGE:0:100 nfsProcPercentage:GAUGE:0:100 nfsSendPercentage:GAUGE:0:100 nfsReceivePercentage:GAUGE:0:100 cifsOpsPerSecond:GAUGE:0:U diskReadKBytesPerSecond:GAUGE:0:U diskWriteKBytesPerSecond:GAUGE:0:U diskBusyPercentage:GAUGE:0:100 nvramReadKBytesPerSecond:GAUGE:0:U nvramWriteKBytesPerSecond:GAUGE:0:U replInKBytesPerSecond:GAUGE:0:U replOutKBytesPerSecond:GAUGE:0:U
+dd_replication PreCompBytesSent:GAUGE:0:U PostCompBytesSent:GAUGE:0:U PreCompBytesRemaining:GAUGE:0:U PostCompBytesReceived:GAUGE:0:U

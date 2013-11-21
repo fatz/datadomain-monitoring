@@ -11,13 +11,14 @@ Other important checks are the operation status of the attached disks, the inter
 
 the `example.cfg` should give you an idea what to do.
 
+![nagios datadomain](./img/nagios-datadomain.png)
+
 ### Todos
 An important part of the data domain is the replication. Currently check_datadomain doesn't support replications.
 
 * check all replication contexts
 * check age of last replication
 * check size of data to sync
-* 
 
 performance monitoring
 ----------------------
@@ -52,4 +53,4 @@ You can watch for example the `PreCompBytesRemaining` for each replication conte
 ![replactionSynced](./img/replicationSynced.png)
 
 ### space
-You also should measure the space usage on the DD file systems. To get an overview how many data is written to your disks and when it's time to tidy up or buying a new shelf. `dd_space-Data` is the really interesting value.
+You also should measure the space usage on the DD file systems. To get an overview how many data is written to your disks and when it's time to tidy up or buying a new shelf. `dd_space-Data` is the really interesting value. You'll be able to see issues with replications here too. If a snapshot doesn't expire or isn't deleted you can see a disk usage difference (if the devices are cross replicated)
