@@ -49,8 +49,11 @@ _Spread your writes:_ please spread your writes over the time. If possible don't
 
 ### replication
 You can watch for example the `PreCompBytesRemaining` for each replication context of your devices. This will show you how many not de-duplicated data is left on the sending device. If this value never comes to zero you definitely have a replication problem. 
+
 ![fixedReplication](./img/fixedReplication.png)
 ![replactionSynced](./img/replicationSynced.png)
 
 ### space
-You also should measure the space usage on the DD file systems. To get an overview how many data is written to your disks and when it's time to tidy up or buying a new shelf. `dd_space-Data` is the really interesting value. You'll be able to see issues with replications here too. If a snapshot doesn't expire or isn't deleted you can see a disk usage difference (if the devices are cross replicated)
+You also should measure the space usage on the DD file systems. To get an overview how many data is written to your disks and when it's time to tidy up or buying a new shelf. `dd_space-Data` is the really interesting value. You'll be able to see issues with replications here too. If a snapshot doesn't expire or isn't deleted you can see a disk usage difference (if the devices are cross replicated). In normal cases the snapshot will be expired and cleaned up when the initial replication is done.
+
+![diskUsage](./img/diskUsage.png)
