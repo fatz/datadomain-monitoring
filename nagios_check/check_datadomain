@@ -364,7 +364,7 @@ if ($opt_m eq "PSU") {
         print $o;
         exit $ERRORS{'OK'};
     } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
-        my $o = sprintf("OK - %i PSUs in unkown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
+        my $o = sprintf("OK - %i PSUs in unkown state\n", scalar @{$out->{$ERRORS{'OK'}}});
         foreach (@{$out->{$ERRORS{'UNKNOWN'}}}) {
             $o .= $_."\n";
         }
@@ -509,6 +509,7 @@ if ($opt_m eq "PSU") {
         } else {
             printf "OK - %i interfaces up\n", scalar @{$out->{$ERRORS{'OK'}}};
             print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+            exit $ERRORS{'OK'}
         }
     }
 } elsif ($opt_m eq "FSSPACE") {
@@ -546,6 +547,7 @@ if ($opt_m eq "PSU") {
     } else {
         printf "OK - %i filesystems ok\n", scalar @{$out->{$ERRORS{'OK'}}};
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+        exit $ERRORS{'OK'}
     }
 } else {
     print "please enter a valid method\n";
