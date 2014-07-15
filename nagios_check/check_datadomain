@@ -364,7 +364,7 @@ if ($opt_m eq "PSU") {
         print $o;
         exit $ERRORS{'OK'};
     } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
-        my $o = sprintf("OK - %i PSUs in unkown state\n", scalar @{$out->{$ERRORS{'OK'}}});
+        my $o = sprintf("UNKNOWN - %i PSUs in unkown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
         foreach (@{$out->{$ERRORS{'UNKNOWN'}}}) {
             $o .= $_."\n";
         }
