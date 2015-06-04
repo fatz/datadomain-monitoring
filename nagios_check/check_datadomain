@@ -9,7 +9,7 @@ check_datadomain - Checks Datadomain states via snmp
 =head1 DESCRIPTION
 
 This plugins monitors some states of your datadomain via snmp. It can monitor for example the state of the PSUs, NVRAM, disks and so on.
- 
+
 =head1 VERSION
 
 Version 0.1r1
@@ -84,7 +84,7 @@ critical filesystem space usage in %
 
 =item -h, --help
 
-Print detailed help screen. You also can use perldoc check_datadomain 
+Print detailed help screen. You also can use perldoc check_datadomain
 
 =item -V, --version
 
@@ -147,33 +147,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =item 20.11.2013: Version 0.1r1 Added some documentation for publishing
 
+=item 04.06.2015: Version 0.2 Fixed wrong interface state handling. Thx. @Thomas
+
 =back
 
 =cut
- 
+
 use strict;
 use Getopt::Long;
 use vars qw($PROGNAME);
 use Net::SNMP;
- 
+
 sub print_help ();
 sub print_usage ();
 
 #prevent from using utils.pm
 my $TIMEOUT = 15;
 my %ERRORS=('OK'=>0,'WARNING'=>1,'CRITICAL'=>2,'UNKNOWN'=>3,'DEPENDENT'=>4);
- 
+
 my ($opt_V, $opt_h, $opt_C, $opt_H, $opt_p, $opt_w, $opt_c, $opt_t, $opt_P,$opt_m, $opt_i);
 my ($result, $message, $age, $size, $st, $oids, @oid, @warning, @critical ,$key, $value);
- 
+
 $PROGNAME="check_snmp_datadomain";
- 
+
 $opt_C="public";
 $opt_H="";
 $opt_p=161;
 $opt_t="10";
 $opt_P="1;";
- 
+
 Getopt::Long::Configure('bundling');
 GetOptions(
         "V"   => \$opt_V, "version"         => \$opt_V,
@@ -187,7 +189,7 @@ GetOptions(
         "i=s" => \$opt_i, "iface=s"         => \$opt_i,
         "t=i" => \$opt_t, "timeout"         => \$opt_t,
         "P=s" => \$opt_P, "protocol=s"      => \$opt_P);
-    
+
 #OIDs
 $oids = {
     enclosures  => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.1",
@@ -200,6 +202,8 @@ $oids = {
     diskmodel   => ".1.3.6.1.4.1.19746.1.6.1.1.1.4",
     ifspeed     => ".1.3.6.1.2.1.31.1.1.1.15",
     ifname      => ".1.3.6.1.2.1.31.1.1.1.1",
+    ifadstatus  => ".1.3.6.1.2.1.2.2.1.7",
+    ifopstatus  => ".1.3.6.1.2.1.2.2.1.8",
     fsname      => ".1.3.6.1.4.1.19746.1.3.2.1.1.3",
     fssize      => ".1.3.6.1.4.1.19746.1.3.2.1.1.4",
     fsused      => ".1.3.6.1.4.1.19746.1.3.2.1.1.5",
@@ -210,29 +214,29 @@ $oids = {
 if ($opt_t) {
         $TIMEOUT=$opt_t;
 }
- 
+
 # Just in case of problems, let's not hang Nagios
 $SIG{'ALRM'} = sub {
         print "UNKNOWN - Plugin Timed out\n";
         exit $ERRORS{"UNKNOWN"};
 };
 alarm($TIMEOUT);
- 
+
 if ($opt_V) {
         exit $ERRORS{'OK'};
 }
- 
+
 if ($opt_h) {
         print_help();
         exit $ERRORS{'OK'};
 }
- 
+
 if (! $opt_H) {
         print "No Hostname specified\n\n";
         print_usage();
         exit $ERRORS{'UNKNOWN'};
 }
- 
+
 sub print_usage () {
         print "Usage:\n";
         print "  $PROGNAME -H <hostname> [-C <COMMUNITY>] [-p <port>] [-P <snmp-version>] -m <method> ( FSSPACE [-w <warning % USED>] [-c <critical % USED>] | IFSTATE -i <interface id>) \n";
@@ -268,9 +272,9 @@ sub print_usage () {
         print "     Print detailed help screen\n";
         print "  -V, --version\n";
         print "     Print version information\n\n";
- 
+
 }
- 
+
 sub print_help () {
         print "Copyright (c) 2013 XING AG - Jan-Henning Ulferts <jan.ulferts\@xing.com>\n\n";
         print_usage();
@@ -493,8 +497,8 @@ if ($opt_m eq "PSU") {
         my @interfaces = split(',',$opt_i);
         my ($state);
         foreach (@interfaces) {
-            if ($result = $session->get_request(($oids->{'ifname'}.".".$_,$oids->{'ifspeed'}.".".$_))) {
-                $state = ($result->{$oids->{'ifspeed'}.".".$_} > 0) ? $ERRORS{'OK'} : $ERRORS{'CRITICAL'};
+            if ($result = $session->get_request(($oids->{'ifname'}.".".$_,$oids->{'ifadstatus'}.".".$_,$oids->{'ifopstatus'}.".".$_,$oids->{'ifspeed'}.".".$_))) {
+                $state = (($result->{$oids->{'ifadstatus'}.".".$_}) == ($result->{$oids->{'ifopstatus'}.".".$_})) ? $ERRORS{'OK'} : $ERRORS{'CRITICAL'};
                 push(@{$out->{$state}}, sprintf("%s - Interface %s is at speed %iG", uc(state_reverse($state)), $result->{$oids->{'ifname'}.".".$_}, $result->{$oids->{'ifspeed'}.".".$_}/1000));
             } else {
                 print "UNKNOWN - plugin in unknown state check the interface id\n";
