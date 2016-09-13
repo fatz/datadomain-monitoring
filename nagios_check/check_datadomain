@@ -154,6 +154,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =cut
 
 use strict;
+use warnings;
 use Getopt::Long;
 use vars qw($PROGNAME);
 use Net::SNMP;
@@ -347,33 +348,27 @@ if ($opt_m eq "PSU") {
         }
     }
     if ($out->{$ERRORS{'CRITICAL'}}) {
-        my $o = sprintf("CRITICAL - %i PSUs in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
-        foreach (@{$out->{$ERRORS{'CRITICAL'}}}) {
-            $o .= $_."\n";
-        }
-        print $o;
+        printf("CRITICAL - %i PSUs in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
+        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
         exit $ERRORS{'CRITICAL'};
     } elsif ($out->{$ERRORS{'WARNING'}}) {
-        my $o = sprintf("WARNING - %i PSUs in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}});
-        foreach (@{$out->{$ERRORS{'WARNING'}}}) {
-            $o .= $_."\n";
-        }
-        print $o;
+        printf("WARNING - %i PSUs in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}});
+        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
         exit $ERRORS{'WARNING'};
-    } elsif ($out->{$ERRORS{'OK'}}) {
-        my $o = sprintf("OK - %i PSUs in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
-        foreach (@{$out->{$ERRORS{'OK'}}}) {
-            $o .= $_."\n";
-        }
-        print $o;
-        exit $ERRORS{'OK'};
     } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
-        my $o = sprintf("UNKNOWN - %i PSUs in unkown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
-        foreach (@{$out->{$ERRORS{'UNKNOWN'}}}) {
-            $o .= $_."\n";
-        }
-        print $o;
+        printf("UNKNOWN - %i PSUs in unkown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
         exit $ERRORS{'UNKNOWN'};
+    } elsif ($out->{$ERRORS{'OK'}}) {
+        printf("OK - %i PSUs in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+        exit $ERRORS{'OK'};
     } else {
         print "UNKNOWN - plugin in unknown state\n";
         exit $ERRORS{'UNKNOWN'};
@@ -397,19 +392,15 @@ if ($opt_m eq "PSU") {
         }
         push(@{$out->{$state}}, sprintf("%s - NVRAM battery in enclosure %i is in ", uc(state_reverse($state)), $enclosure, $nvramBatteryStatus->{$val}))
     }
+
     if ($out->{$ERRORS{'CRITICAL'}}) {
-        my $o = sprintf("CRITICAL - %i nvram batteries in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
-        foreach (@{$out->{$ERRORS{'CRITICAL'}}}) {
-            $o .= $_."\n";
-        }
-        print $o;
+        printf("CRITICAL - %i nvram batteries in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
+        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
         exit $ERRORS{'CRITICAL'};
     } elsif ($out->{$ERRORS{'OK'}}) {
-        my $o = sprintf("OK - %i nvram batteries in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
-        foreach (@{$out->{$ERRORS{'OK'}}}) {
-            $o .= $_."\n";
-        }
-        print $o;
+        printf("OK - %i nvram batteries in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
         exit $ERRORS{'OK'};
     } else {
         print "UNKNOWN - plugin in unknown state\n";
@@ -417,7 +408,7 @@ if ($opt_m eq "PSU") {
     }
 } elsif ($opt_m eq "FAN") {
     my $state=$ERRORS{'OK'};
-    $result = {state => $session->get_table($oids->{'fanstate'}), name => $session->get_table($oids->{'fanname'}),};
+    $result = {'state' => $session->get_table($oids->{'fanstate'}), 'name' => $session->get_table($oids->{'fanname'}),};
     my $r;
     foreach my $enclosure (sort @enclosures) {
         my $reg = $oids->{'fanstate'}."\.".$enclosure."\.[0-9]+";
@@ -438,9 +429,9 @@ if ($opt_m eq "PSU") {
             push(@{$out->{$state}},sprintf("%s - Enclosure %i, Fan %s: %s",uc(state_reverse($state)),$enclosure,$result->{name}->{$oids->{'fanname'}.".".$myid},$fanStatus->{$fanstate}));
         }
     }
-    if ($state == $ERRORS{'CRITICAL'}) {
+    if ($out->{$ERRORS{'CRITICAL'}}) {
         printf "CRITICAL - %i fans in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
-        print join("\n",@{$out->{$state}})."\n";
+        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
         exit $ERRORS{'CRITICAL'};
     } else {
@@ -450,11 +441,11 @@ if ($opt_m eq "PSU") {
     }
 } elsif ($opt_m eq "DISKSTATE") {
     my $state=$ERRORS{'OK'};
-    $result = {state => $session->get_table($oids->{'diskstate'}), serial => $session->get_table($oids->{'diskserial'}), model => $session->get_table($oids->{'diskmodel'})};
+    $result = {'state' => $session->get_table($oids->{'diskstate'}), 'serial' => $session->get_table($oids->{'diskserial'}), 'model' => $session->get_table($oids->{'diskmodel'})};
     my $r;
     foreach my $enclosure (sort @enclosures) {
         my $reg = $oids->{'diskstate'}."\.".$enclosure."\.[0-9]+";
-        my @enres = grep { $_ =~ m/$reg/} keys %{$result->{state}};
+        my @enres = grep { $_ =~ m/$reg/} keys %{$result->{'state'}};
         foreach (sort @enres) {
             $_ =~m/^.*\.([0-9]+)$/;
             my $myid = $enclosure.".".$1;
@@ -470,18 +461,18 @@ if ($opt_m eq "PSU") {
                 print "UNKNOWN - plugin in unknown state\n";
                 exit $ERRORS{'UNKNOWN'};
             }
-            push(@{$out->{$state}},sprintf("%s - Enclosure %i, Disk %s, S/N %s: %s",uc(state_reverse($state)),$enclosure,$result->{model}->{$oids->{'diskmodel'}.".".$myid},$result->{serial}->{$oids->{'diskserial'}.".".$myid},$diskState->{$diskstate}));
+            push(@{$out->{$state}},sprintf("%s - Enclosure %i, Disk %s, S/N %s: %s",uc(state_reverse($state)),$enclosure,$result->{'model'}->{$oids->{'diskmodel'}.".".$myid},$result->{'serial'}->{$oids->{'diskserial'}.".".$myid},$diskState->{$diskstate}));
         }
     }
-    if ($state == $ERRORS{'CRITICAL'}) {
+    if ($out->{$ERRORS{'CRITICAL'}}) {
         printf "CRITICAL - %i disks in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
-        print join("\n",@{$out->{$state}})."\n";
+        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
         print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
         exit $ERRORS{'CRITICAL'};
-    } elsif ($state == $ERRORS{'UNKNOWN'}) {
+    } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
         printf "WARNING - %i disks in unknown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}};
-        print join("\n",@{$out->{$state}})."\n";
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
         exit $ERRORS{'WARNING'};
     } else {
