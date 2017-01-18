@@ -326,7 +326,7 @@ foreach (keys %{$t}) {
 }
 my @enclosures = keys %{$r};
 
-my ( $output, $out );
+my ( $output, $out, $perfdata );
 if ($opt_m eq "PSU") {
     my $state = $ERRORS{'OK'};
     foreach my $enclosure (sort @enclosures) {
@@ -527,21 +527,28 @@ if ($opt_m eq "PSU") {
             exit $ERRORS{'UNKNOWN'};
         }
         push(@{$out->{$state}}, sprintf("%s - Filesystem %s filled %i%% %4.2fG available", uc(state_reverse($state)), $result->{$oids->{fsname}.".".$_}, $result->{$oids->{fsperc}.".".$_},$result->{$oids->{fsavail}.".".$_}));
+        push(@{$perfdata}, sprintf(" '%s_perc'=%s%%;%s;%s;0;100 '%s_avail'=%s;;;;", $result->{$oids->{fsname}.".".$_}, $result->{$oids->{fsperc}.".".$_}, $warn, $crit, $result->{$oids->{fsname}.".".$_}, $result->{$oids->{fsavail}.".".$_}));
     }
     if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
         printf "CRITICAL - %i filesystems in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
         print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
         print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n" if $out->{$ERRORS{'WARNING'}};
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        print " | ";
+        print join("", @{$perfdata});
         exit $ERRORS{'CRITICAL'};
     } elsif (defined $out->{$ERRORS{'WARNING'}} && scalar @{$out->{$ERRORS{'WARNING'}}} > 0) {
         printf "WARNING - %i filesystems in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}};
         print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        print " | ";
+        print join("", @{$perfdata});
         exit $ERRORS{'WARNING'};
     } else {
         printf "OK - %i filesystems ok\n", scalar @{$out->{$ERRORS{'OK'}}};
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+        print " | ";
+        print join("", @{$perfdata});
         exit $ERRORS{'OK'}
     }
 } else {
