@@ -374,31 +374,41 @@ if ($opt_m eq "PSU") {
         exit $ERRORS{'UNKNOWN'};
     }
 } elsif ($opt_m eq "NVRAM") {
-    my @req;
-    foreach my $enclosure (sort @enclosures) {
-        push(@req, $oids->{nvram}.".".$enclosure);
-    }
-    my $res = $session->get_request(@req);
-    foreach my $enclosure (@enclosures) {
+    my $req = $oids->{'nvram'};
+    my $result = $session->get_table($req);
+
+    while(my($k,$v) = each %$result) {
         my $state;
-        my $val = $res->{$oids->{nvram}.".".$enclosure};
-        if ( $val == 0 ) {
-            $state = $ERRORS{'OK'};
-        } elsif ( $val > 0 && $val < 3 ) {
-            $state = $ERRORS{'CRITICAL'};
+        my $batteryId = $k;
+        $batteryId =~ s/$oids->{'nvram'}.//;
+        my $val = $v;
+        if ( defined $val ) {
+            if ( $val == 0 ) {
+                $state = $ERRORS{'OK'};
+            } elsif ( $val > 0 && $val < 3 ) {
+                $state = $ERRORS{'CRITICAL'};
+            } else {
+                print "UNKNOWN - plugin in unknown state\n";
+                exit $ERRORS{'UNKNOWN'};
+            }
+            push(@{$out->{$state}}, sprintf("%s - NVRAM battery %i is in '%s' state", uc(state_reverse($state)), $batteryId, $nvramBatteryStatus->{$val}))
         } else {
-            print "UNKNOWN - plugin in unknown state\n";
-            exit $ERRORS{'UNKNOWN'};
+            $state = $ERRORS{'UNKNOWN'};
+            push(@{$out->{$state}}, sprintf("%s - NVRAM battery %i state is not known", uc(state_reverse($state)), $batteryId))
         }
-        push(@{$out->{$state}}, sprintf("%s - NVRAM battery in enclosure %i is in ", uc(state_reverse($state)), $enclosure, $nvramBatteryStatus->{$val}))
     }
 
-    if ($out->{$ERRORS{'CRITICAL'}}) {
+    if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
         printf("CRITICAL - %i nvram batteries in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
         print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
         exit $ERRORS{'CRITICAL'};
-    } elsif ($out->{$ERRORS{'OK'}}) {
+    } elsif (defined $out->{$ERRORS{'UNKNOWN'}} && scalar @{$out->{$ERRORS{'UNKNOWN'}}} > 0) {
+        printf("UNKNOWN - %i nvram batteries in unknown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+        exit $ERRORS{'UNKNOWN'};
+    } elsif (defined $out->{$ERRORS{'OK'}} && scalar @{$out->{$ERRORS{'OK'}}} > 0) {
         printf("OK - %i nvram batteries in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
         print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
         exit $ERRORS{'OK'};
