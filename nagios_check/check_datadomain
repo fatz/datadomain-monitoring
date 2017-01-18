@@ -12,7 +12,7 @@ This plugins monitors some states of your datadomain via snmp. It can monitor fo
 
 =head1 VERSION
 
-Version 0.1r1
+Version 0.3
 
 =head1 SYNOPSIS
 
@@ -40,13 +40,15 @@ SNMP protocol version [1,2c]
 
 =item -m, --method <checkmethod>
 
-check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE
+check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE
 
 =over 1
 
 =item PSU: State of all Powersupplies
 
 =item NVRAM: NVRAM battery state
+
+=item ALERTS: Active alerts on the system
 
 =item FAN: Fan state of all enclosures
 
@@ -148,6 +150,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =item 20.11.2013: Version 0.1r1 Added some documentation for publishing
 
 =item 04.06.2015: Version 0.2 Fixed wrong interface state handling. Thx. @Thomas
+
+=item 18.01.2017: Version 0.3 Add Alerts as a check, Fix NVRAM check and add perfdata to FSSPACE.
 
 =back
 
@@ -254,9 +258,10 @@ sub print_usage () {
         print "  -P, --protocol\n";
         print "     SNMP protocol version [1,2c]\n";
         print "  -m, --method\n";
-        print "     check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE\n";
+        print "     check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE\n";
         print "         PSU: State of all Powersupplies\n";
         print "         NVRAM: NVRAM battery state\n";
+        print "         ALERTS: Active alerts on the system\n";
         print "         FAN: Fan state of all enclosures\n";
         print "         DISKSTATE: disk states\n";
         print "         FSSPACE: used filesystem space. -w for waring % -c for critical %\n";
@@ -415,6 +420,77 @@ if ($opt_m eq "PSU") {
     } else {
         print "UNKNOWN - plugin in unknown state\n";
         exit $ERRORS{'UNKNOWN'};
+    }
+} elsif ($opt_m eq "ALERTS") {
+    my $state=$ERRORS{'UNKNOWN'};
+    my $q = $oids->{'alerts'};
+    $result = $session->get_table($q);
+    my @alerts;
+
+    while(my($k,$v) = each %$result) {
+        my $inputkey = $k;
+        my $vdesc = undef;
+        if ($inputkey =~ m/$oids->{'alertdesc'}/) {
+           $inputkey =~ s/$oids->{'alertdesc'}.//;
+           $vdesc = "desc";
+        } elsif ($inputkey =~ m/$oids->{'alertsev'}/) {
+           $inputkey =~ s/$oids->{'alertsev'}.//;
+           $vdesc = "severity";
+        } elsif ($inputkey =~ m/$oids->{'alerttime'}/) {
+           $inputkey =~ s/$oids->{'alerttime'}.//;
+           $vdesc = "time";
+        } elsif ($inputkey =~ m/$oids->{'alertid'}/) {
+           $inputkey =~ s/$oids->{'alertid'}.//;
+           $vdesc = "id";
+        }
+        if (defined $vdesc) {
+            $alerts[$inputkey]{$vdesc} = $v;
+        }
+    }
+
+    # Remove undefined elements
+    @alerts = grep defined, @alerts;
+
+    foreach my $alert (@alerts){
+       if ($alert->{'severity'} =~ "CRITICAL") {
+          $state = $ERRORS{'CRITICAL'};
+       } elsif ($alert->{'severity'} =~ "WARNING") {
+          $state = $ERRORS{'WARNING'};
+       } else {
+          $state = $ERRORS{'UNKNOWN'};
+       }
+       push(@{$out->{$state}},sprintf("%s - Alert %s from %s: %s",uc(state_reverse($state)),$alert->{'id'},$alert->{'time'},$alert->{'desc'}));
+    }
+
+    if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
+        printf "CRITICAL - %i alerts in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
+        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n" if $out->{$ERRORS{'WARNING'}};
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'CRITICAL'};
+    } elsif (defined $out->{$ERRORS{'WARNING'}} && scalar @{$out->{$ERRORS{'WARNING'}}} > 0) {
+        printf "WARNING - %i alerts in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}};
+        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'WARNING'};
+    } elsif (defined $out->{$ERRORS{'UNKNOWN'}} && scalar @{$out->{$ERRORS{'UNKNOWN'}}} > 0) {
+        printf "UNKNOWN - %i alerts in unknown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}};
+        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
+        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n" if $out->{$ERRORS{'CRITICAL'}};
+        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+        exit $ERRORS{'UNKNOWN'};
+    } else {
+        if (scalar @alerts == 0) {
+            printf "OK - No alerts\n";
+        } else {
+            printf "OK - %i alerts\n", scalar @{$out->{$ERRORS{'OK'}}};
+            print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+            print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n" if $out->{$ERRORS{'CRITICAL'}};
+            print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
+        }
+        exit $ERRORS{'OK'};
     }
 } elsif ($opt_m eq "FAN") {
     my $state=$ERRORS{'OK'};
