@@ -534,7 +534,11 @@ if ($opt_m eq "PSU") {
         foreach (@interfaces) {
             if ($result = $session->get_request(($oids->{'ifname'}.".".$_,$oids->{'ifadstatus'}.".".$_,$oids->{'ifopstatus'}.".".$_,$oids->{'ifspeed'}.".".$_))) {
                 $state = (($result->{$oids->{'ifadstatus'}.".".$_}) == ($result->{$oids->{'ifopstatus'}.".".$_})) ? $ERRORS{'OK'} : $ERRORS{'CRITICAL'};
-                push(@{$out->{$state}}, sprintf("%s - Interface %s is at speed %iMb/s", uc(state_reverse($state)), $result->{$oids->{'ifname'}.".".$_}, $result->{$oids->{'ifspeed'}.".".$_}));
+                if ($result->{$oids->{'ifspeed'}.".".$_} < 1000) {
+                    push(@{$out->{$state}}, sprintf("%s - Interface %s is at speed %iMb/s", uc(state_reverse($state)), $result->{$oids->{'ifname'}.".".$_}, $result->{$oids->{'ifspeed'}.".".$_}));
+                } else {
+                    push(@{$out->{$state}}, sprintf("%s - Interface %s is at speed %iGb/s", uc(state_reverse($state)), $result->{$oids->{'ifname'}.".".$_}, $result->{$oids->{'ifspeed'}.".".$_}/1000));
+                }
             } else {
                 print "UNKNOWN - plugin in unknown state check the interface id\n";
                 exit $ERRORS{'UNKNOWN'};
