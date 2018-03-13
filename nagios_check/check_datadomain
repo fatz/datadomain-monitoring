@@ -325,6 +325,16 @@ my $diskState = {
     4 => 'failed',
 };
 
+my $methodName = {
+    "PSU"         => "PSU(s)",
+    "NVRAM"       => "nvram batterie(s)",
+    "ALERTS"      => "alert(s)",
+    "FAN"         => "fan(s)",
+    "DISKSTATE"   => "disk(s)",
+    "FSSPACE"     => "filesystem(s)",
+    "IFSTATE"     => "interface(s)",
+};
+
 my ($session, $error) = Net::SNMP->session(Hostname => $opt_H, Community => $opt_C);
     print "Session Error: $error" && exit $ERRORS{'UNKNOWN'} unless ($session);
 
@@ -358,32 +368,6 @@ if ($opt_m eq "PSU") {
             push(@{$out->{$state}}, sprintf("%s - PS%i from Enclosure %i is in state %s", uc(state_reverse($state)), $ps, $enclosure, $powerModuleStatus->{$val}));
         }
     }
-    if ($out->{$ERRORS{'CRITICAL'}}) {
-        printf("CRITICAL - %i PSUs in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
-        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'CRITICAL'};
-    } elsif ($out->{$ERRORS{'WARNING'}}) {
-        printf("WARNING - %i PSUs in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}});
-        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'WARNING'};
-    } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
-        printf("UNKNOWN - %i PSUs in unkown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'UNKNOWN'};
-    } elsif ($out->{$ERRORS{'OK'}}) {
-        printf("OK - %i PSUs in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'OK'};
-    } else {
-        print "UNKNOWN - plugin in unknown state\n";
-        exit $ERRORS{'UNKNOWN'};
-    }
 } elsif ($opt_m eq "NVRAM") {
     my $req = $oids->{'nvram'};
     my $result = $session->get_table($req);
@@ -407,25 +391,6 @@ if ($opt_m eq "PSU") {
             $state = $ERRORS{'UNKNOWN'};
             push(@{$out->{$state}}, sprintf("%s - NVRAM battery %i state is not known", uc(state_reverse($state)), $batteryId))
         }
-    }
-
-    if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
-        printf("CRITICAL - %i nvram batteries in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}});
-        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'CRITICAL'};
-    } elsif (defined $out->{$ERRORS{'UNKNOWN'}} && scalar @{$out->{$ERRORS{'UNKNOWN'}}} > 0) {
-        printf("UNKNOWN - %i nvram batteries in unknown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'UNKNOWN'};
-    } elsif (defined $out->{$ERRORS{'OK'}} && scalar @{$out->{$ERRORS{'OK'}}} > 0) {
-        printf("OK - %i nvram batteries in ok state\n", scalar @{$out->{$ERRORS{'OK'}}});
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'OK'};
-    } else {
-        print "UNKNOWN - plugin in unknown state\n";
-        exit $ERRORS{'UNKNOWN'};
     }
 } elsif ($opt_m eq "ALERTS") {
     my $state=$ERRORS{'UNKNOWN'};
@@ -473,36 +438,9 @@ if ($opt_m eq "PSU") {
        }
        push(@{$out->{$state}},sprintf("%s - Alert %s from %s: %s",uc(state_reverse($state)),$alert->{'id'},$alert->{'time'},$alert->{'desc'}));
     }
-
-    if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
-        printf "CRITICAL - %i alerts in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
-        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n" if $out->{$ERRORS{'WARNING'}};
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        exit $ERRORS{'CRITICAL'};
-    } elsif (defined $out->{$ERRORS{'WARNING'}} && scalar @{$out->{$ERRORS{'WARNING'}}} > 0) {
-        printf "WARNING - %i alerts in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}};
-        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        exit $ERRORS{'WARNING'};
-    } elsif (defined $out->{$ERRORS{'UNKNOWN'}} && scalar @{$out->{$ERRORS{'UNKNOWN'}}} > 0) {
-        printf "UNKNOWN - %i alerts in unknown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}};
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n" if $out->{$ERRORS{'CRITICAL'}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        exit $ERRORS{'UNKNOWN'};
-    } else {
-        if (scalar @alerts == 0) {
-            printf "OK - No alerts\n";
-        } else {
-            printf "OK - %i alerts\n", scalar @{$out->{$ERRORS{'OK'}}};
-            print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-            print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n" if $out->{$ERRORS{'CRITICAL'}};
-            print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
-        }
-        exit $ERRORS{'OK'};
+    if (scalar @alerts == 0) {
+        printf "OK - No alerts\n";
+        exit(0);
     }
 } elsif ($opt_m eq "FAN") {
     my $state=$ERRORS{'OK'};
@@ -526,16 +464,6 @@ if ($opt_m eq "PSU") {
             }
             push(@{$out->{$state}},sprintf("%s - Enclosure %i, Fan %s: %s",uc(state_reverse($state)),$enclosure,$result->{name}->{$oids->{'fanname'}.".".$myid},$fanStatus->{$fanstate}));
         }
-    }
-    if ($out->{$ERRORS{'CRITICAL'}}) {
-        printf "CRITICAL - %i fans in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
-        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        exit $ERRORS{'CRITICAL'};
-    } else {
-        printf "OK - %i fans ok\n", scalar @{$out->{$ERRORS{'OK'}}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'OK'};
     }
 } elsif ($opt_m eq "DISKSTATE") {
     my $state=$ERRORS{'OK'};
@@ -562,22 +490,6 @@ if ($opt_m eq "PSU") {
             push(@{$out->{$state}},sprintf("%s - Enclosure %i, Disk %s, S/N %s: %s",uc(state_reverse($state)),$enclosure,$result->{'model'}->{$oids->{'diskmodel'}.".".$myid},$result->{'serial'}->{$oids->{'diskserial'}.".".$myid},$diskState->{$diskstate}));
         }
     }
-    if ($out->{$ERRORS{'CRITICAL'}}) {
-        printf "CRITICAL - %i disks in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
-        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        exit $ERRORS{'CRITICAL'};
-    } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
-        printf "WARNING - %i disks in unknown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}};
-        print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        exit $ERRORS{'WARNING'};
-    } else {
-        printf "OK - %i disks ok\n", scalar @{$out->{$ERRORS{'OK'}}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        exit $ERRORS{'OK'};
-    }
 } elsif ($opt_m eq "IFSTATE") {
     unless ($opt_i && $opt_i=~m/^[0-9]+(,[0-9]+)*$/) {
         print "UNKNOWN - please enter a numeric interface id or list.\n";
@@ -593,16 +505,6 @@ if ($opt_m eq "PSU") {
                 print "UNKNOWN - plugin in unknown state check the interface id\n";
                 exit $ERRORS{'UNKNOWN'};
             }
-        }
-        if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
-            printf "CRITICAL - %i interfaces down\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
-            print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
-            print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-            exit $ERRORS{'CRITICAL'};
-        } else {
-            printf "OK - %i interfaces up\n", scalar @{$out->{$ERRORS{'OK'}}};
-            print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-            exit $ERRORS{'OK'}
         }
     }
 } elsif ($opt_m eq "FSSPACE") {
@@ -630,32 +532,50 @@ if ($opt_m eq "PSU") {
         push(@{$out->{$state}}, sprintf("%s - Filesystem %s filled %i%% %4.2fG available", uc(state_reverse($state)), $result->{$oids->{fsname}.".".$_}, $result->{$oids->{fsperc}.".".$_},$result->{$oids->{fsavail}.".".$_}));
         push(@{$perfdata}, sprintf(" '%s_perc'=%s%%;%s;%s;0;100 '%s_avail'=%s;;;;", $result->{$oids->{fsname}.".".$_}, $result->{$oids->{fsperc}.".".$_}, $warn, $crit, $result->{$oids->{fsname}.".".$_}, $result->{$oids->{fsavail}.".".$_}));
     }
-    if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
-        printf "CRITICAL - %i filesystems in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
-        print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n" if $out->{$ERRORS{'WARNING'}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        print " | ";
-        print join("", @{$perfdata});
-        exit $ERRORS{'CRITICAL'};
-    } elsif (defined $out->{$ERRORS{'WARNING'}} && scalar @{$out->{$ERRORS{'WARNING'}}} > 0) {
-        printf "WARNING - %i filesystems in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}};
-        print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
-        print " | ";
-        print join("", @{$perfdata});
-        exit $ERRORS{'WARNING'};
-    } else {
-        printf "OK - %i filesystems ok\n", scalar @{$out->{$ERRORS{'OK'}}};
-        print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
-        print " | ";
-        print join("", @{$perfdata});
-        exit $ERRORS{'OK'}
-    }
 } else {
     print "please enter a valid method\n";
     print_usage();
     exit $ERRORS{'UNKNOWN'};
+}
+
+if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}} > 0) {
+    printf "CRITICAL - %i $methodName->{$opt_m} in critical state\n", scalar @{$out->{$ERRORS{'CRITICAL'}}};
+    print join("\n",@{$out->{$ERRORS{'CRITICAL'}}})."\n";
+    print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n" if $out->{$ERRORS{'WARNING'}};
+    print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
+    print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+    if (defined $perfdata) {
+        print " | ";
+        print join("", @{$perfdata});
+    }
+    exit $ERRORS{'CRITICAL'};
+} elsif (defined $out->{$ERRORS{'WARNING'}} && scalar @{$out->{$ERRORS{'WARNING'}}} > 0) {
+    printf "WARNING - %i $methodName->{$opt_m} in warning state\n", scalar @{$out->{$ERRORS{'WARNING'}}};
+    print join("\n",@{$out->{$ERRORS{'WARNING'}}})."\n";
+    print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n" if $out->{$ERRORS{'UNKNOWN'}};
+    print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+    if (defined $perfdata) {
+        print " | ";
+        print join("", @{$perfdata});
+    }
+    exit $ERRORS{'WARNING'};
+} elsif ($out->{$ERRORS{'UNKNOWN'}}) {
+    printf("UNKNOWN - %i $methodName->{$opt_m} in unkown state\n", scalar @{$out->{$ERRORS{'UNKNOWN'}}});
+    print join("\n",@{$out->{$ERRORS{'UNKNOWN'}}})."\n";
+    print join("\n",@{$out->{$ERRORS{'OK'}}})."\n" if $out->{$ERRORS{'OK'}};
+    if (defined $perfdata) {
+        print " | ";
+        print join("", @{$perfdata});
+    }
+    exit $ERRORS{'UNKNOWN'};
+} else {
+    printf "OK - %i $methodName->{$opt_m} ok\n", scalar @{$out->{$ERRORS{'OK'}}};
+    print join("\n",@{$out->{$ERRORS{'OK'}}})."\n";
+    if (defined $perfdata) {
+        print " | ";
+        print join("", @{$perfdata});
+    }
+    exit $ERRORS{'OK'};
 }
 
 sub state_reverse {
