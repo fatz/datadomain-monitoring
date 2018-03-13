@@ -458,6 +458,12 @@ if ($opt_m eq "PSU") {
     @alerts = grep defined, @alerts;
 
     foreach my $alert (@alerts){
+       if (not exists $alert->{'id'}) {
+          $alert->{'id'} = 'UNKNOWN ID';
+       }
+       if (not exists $alert->{'severity'}) {
+          $alert->{'severity'} = 'UNKNOWN';
+       }
        if ($alert->{'severity'} =~ "CRITICAL") {
           $state = $ERRORS{'CRITICAL'};
        } elsif ($alert->{'severity'} =~ "WARNING") {
