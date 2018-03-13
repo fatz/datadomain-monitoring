@@ -40,7 +40,7 @@ SNMP protocol version [1,2c]
 
 =item -m, --method <checkmethod>
 
-check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE
+check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE, REPLICATION
 
 =over 1
 
@@ -69,6 +69,8 @@ check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE
 =item do a snmpwalk on IF-MIB to get the interface ids
 
 =back
+
+=item REPLICATION: state of all replication pairs
 
 =back
 
@@ -220,6 +222,20 @@ $oids = {
     alertsev    => ".1.3.6.1.4.1.19746.1.4.1.1.1.4",
     alerttime   => ".1.3.6.1.4.1.19746.1.4.1.1.1.2",
     alertid     => ".1.3.6.1.4.1.19746.1.4.1.1.1.5",
+    replctxt          => ".1.3.6.1.4.1.19746.1.8.1.1.1.1",
+    replctxttrap      => ".1.3.6.1.4.1.19746.1.8.1.1.1.2",
+    replstate         => ".1.3.6.1.4.1.19746.1.8.1.1.1.3",
+    replstatus        => ".1.3.6.1.4.1.19746.1.8.1.1.1.4",
+    replfsstatus      => ".1.3.6.1.4.1.19746.1.8.1.1.1.5",
+    replconntime      => ".1.3.6.1.4.1.19746.1.8.1.1.1.6",
+    replsource        => ".1.3.6.1.4.1.19746.1.8.1.1.1.7",
+    repldest          => ".1.3.6.1.4.1.19746.1.8.1.1.1.8",
+    replprecompsent   => ".1.3.6.1.4.1.19746.1.8.1.1.1.9",
+    replpostcompsent  => ".1.3.6.1.4.1.19746.1.8.1.1.1.10",
+    replprecompremain => ".1.3.6.1.4.1.19746.1.8.1.1.1.11",
+    replpostcomprcv   => ".1.3.6.1.4.1.19746.1.8.1.1.1.12",
+    replthrottle      => ".1.3.6.1.4.1.19746.1.8.1.1.1.13",
+    replsyncedtime    => ".1.3.6.1.4.1.19746.1.8.1.1.1.14",
 };
 
 if ($opt_t) {
@@ -264,7 +280,7 @@ sub print_usage () {
         print "  -P, --protocol\n";
         print "     SNMP protocol version [1,2c]\n";
         print "  -m, --method\n";
-        print "     check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE\n";
+        print "     check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE, REPLICATION\n";
         print "         PSU: State of all Powersupplies\n";
         print "         NVRAM: NVRAM battery state\n";
         print "         ALERTS: Active alerts on the system\n";
@@ -274,6 +290,7 @@ sub print_usage () {
         print "             Defaults: -w 75 -c 90\n";
         print "         IFSTATE: Checks if the given interfaces are up. e.g.:-i 2,3\n";
         print "             do a snmpwalk on IF-MIB to get the interface ids\n";
+        print "         REPLICATION: state of all replication pairs\n";
         print "  -i, --iface\n";
         print "     comma seperated list of interface ids that should be up (use snmpwalk to get them)\n";
         print "  -w, --warning\n";
@@ -325,6 +342,22 @@ my $diskState = {
     4 => 'failed',
 };
 
+my $replState = {
+    1 => 'initializing',
+    2 => 'normal',
+    3 => 'recovering',
+    4 => 'uninitialized',
+};
+
+my $replStatus = {
+    1 => 'connected',
+    2 => 'disconnected',
+    3 => 'migrating',
+    4 => 'suspended',
+    5 => 'neverConnected',
+    6 => 'idle',
+};
+
 my $methodName = {
     "PSU"         => "PSU(s)",
     "NVRAM"       => "nvram batterie(s)",
@@ -333,6 +366,7 @@ my $methodName = {
     "DISKSTATE"   => "disk(s)",
     "FSSPACE"     => "filesystem(s)",
     "IFSTATE"     => "interface(s)",
+    "REPLICATION" => "replication pair(s)",
 };
 
 my ($session, $error) = Net::SNMP->session(Hostname => $opt_H, Community => $opt_C);
@@ -500,12 +534,48 @@ if ($opt_m eq "PSU") {
         foreach (@interfaces) {
             if ($result = $session->get_request(($oids->{'ifname'}.".".$_,$oids->{'ifadstatus'}.".".$_,$oids->{'ifopstatus'}.".".$_,$oids->{'ifspeed'}.".".$_))) {
                 $state = (($result->{$oids->{'ifadstatus'}.".".$_}) == ($result->{$oids->{'ifopstatus'}.".".$_})) ? $ERRORS{'OK'} : $ERRORS{'CRITICAL'};
-                push(@{$out->{$state}}, sprintf("%s - Interface %s is at speed %iG", uc(state_reverse($state)), $result->{$oids->{'ifname'}.".".$_}, $result->{$oids->{'ifspeed'}.".".$_}/1000));
+                push(@{$out->{$state}}, sprintf("%s - Interface %s is at speed %iMb/s", uc(state_reverse($state)), $result->{$oids->{'ifname'}.".".$_}, $result->{$oids->{'ifspeed'}.".".$_}));
             } else {
                 print "UNKNOWN - plugin in unknown state check the interface id\n";
                 exit $ERRORS{'UNKNOWN'};
             }
         }
+    }
+} elsif ($opt_m eq "REPLICATION") {
+    my $state;
+    my $req = $oids->{'replctxt'};
+    my $result = $session->get_table($req);
+
+    my @repl = values %$result;
+    my @o = map { ( $oids->{replstate}.".".$_,
+                    $oids->{replstatus}.".".$_,
+                    $oids->{replconntime}.".".$_,
+                    $oids->{replsource}.".".$_,
+                    $oids->{repldest}.".".$_,
+                    ) } @repl;
+    $result = $session->get_request(@o);
+
+    foreach (@repl) {
+        if ($result->{$oids->{replstatus}.".".$_} == "1") {
+            if ($result->{$oids->{replstate}.".".$_} == "2") {
+                $state = $ERRORS{'OK'};
+            } else {
+                $state = $ERRORS{'CRITICAL'};
+            }
+        } elsif ($result->{$oids->{replstatus}.".".$_} == "3" ||
+                 $result->{$oids->{replstatus}.".".$_} == "4" ||
+                 $result->{$oids->{replstatus}.".".$_} == "6") {
+            $state = $ERRORS{'WARNING'};
+        } else {
+            $state = $ERRORS{'CRITICAL'};
+        }
+        push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s, state: %s, status: %s, connected since: %s",
+                                        uc(state_reverse($state)),
+                                        $result->{$oids->{replsource}.".".$_},
+                                        $result->{$oids->{repldest}.".".$_},
+                                        $replState->{$result->{$oids->{replstate}.".".$_}},
+                                        $replStatus->{$result->{$oids->{replstatus}.".".$_}},
+                                        scalar(localtime($result->{$oids->{replconntime}.".".$_}))));
     }
 } elsif ($opt_m eq "FSSPACE") {
     my $crit = $opt_c || "90";

@@ -14,9 +14,8 @@ the `example.cfg` should give you an idea what to do.
 ![nagios datadomain](./img/nagios-datadomain.png)
 
 ### Todos
-An important part of the data domain is the replication. Currently check_datadomain doesn't support replications.
+An important part of the data domain is the replication. Currently check_datadomain only supports checking replication pairs state.
 
-* check all replication contexts
 * check age of last replication
 * check size of data to sync
 

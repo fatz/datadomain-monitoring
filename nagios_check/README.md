@@ -35,7 +35,7 @@ check\_datadomain -H <hostname> \[-C <COMMUNITY>\] \[-p <port>\] \[-P <snmp-vers
 
 - \-m, --method <checkmethod>
 
-    check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE
+    check method one of PSU, NVRAM, FAN, DISKSTATE, FSSPACE, IFSTATE, REPLICATION
 
     - PSU: State of all Powersupplies
     - NVRAM: NVRAM battery state
@@ -45,6 +45,7 @@ check\_datadomain -H <hostname> \[-C <COMMUNITY>\] \[-p <port>\] \[-P <snmp-vers
         - Defaults: -w 75 -c 90
     - IFSTATE: Checks if the given interfaces are up. e.g.:-i 2,3
         - do a snmpwalk on IF-MIB to get the interface ids
+    - REPLICATION: state of all replication pairs
 
 - \-i, --iface <if ids>
 
