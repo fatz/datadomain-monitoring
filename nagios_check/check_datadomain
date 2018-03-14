@@ -38,6 +38,10 @@ Port number (default: 161)
 
 SNMP protocol version [1,2c]
 
+=item -t, --timeout <seconds>
+
+Script timeout in seconds (default: 15)
+
 =item -m, --method <checkmethod>
 
 check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE, REPLICATION
@@ -180,7 +184,7 @@ $PROGNAME="check_snmp_datadomain";
 $opt_C="public";
 $opt_H="";
 $opt_p=161;
-$opt_t="10";
+$opt_t="15";
 $opt_P="1;";
 
 Getopt::Long::Configure('bundling');
@@ -279,6 +283,8 @@ sub print_usage () {
         print "     Port number (default: 161)\n";
         print "  -P, --protocol\n";
         print "     SNMP protocol version [1,2c]\n";
+        print "  -t, --timeout <seconds>\n";
+        print "     SNMP timeout in seconds (default: 15)\n";
         print "  -m, --method\n";
         print "     check method one of PSU, NVRAM, ALERTS, FAN, DISKSTATE, FSSPACE, IFSTATE, REPLICATION\n";
         print "         PSU: State of all Powersupplies\n";
