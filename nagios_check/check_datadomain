@@ -185,7 +185,7 @@ $opt_C="public";
 $opt_H="";
 $opt_p=161;
 $opt_t="15";
-$opt_P="1;";
+$opt_P="1";
 
 Getopt::Long::Configure('bundling');
 GetOptions(
@@ -375,7 +375,7 @@ my $methodName = {
     "REPLICATION" => "replication pair(s)",
 };
 
-my ($session, $error) = Net::SNMP->session(Hostname => $opt_H, Community => $opt_C);
+my ($session, $error) = Net::SNMP->session(Hostname => $opt_H, Community => $opt_C, Version => $opt_P);
     print "Session Error: $error" && exit $ERRORS{'UNKNOWN'} unless ($session);
 
 my $t = $session->get_table($oids->{enclosures});
