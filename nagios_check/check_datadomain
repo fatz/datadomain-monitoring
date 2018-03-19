@@ -193,12 +193,12 @@ GetOptions(
         "h"   => \$opt_h, "help"            => \$opt_h,
         "C=s" => \$opt_C, "community"       => \$opt_C,
         "H=s" => \$opt_H, "hostname"        => \$opt_H,
-        "p=i" => \$opt_p, "port"            => \$opt_p,
+        "p=i" => \$opt_p, "port=i"          => \$opt_p,
         "w=s" => \$opt_w, "warning=s"       => \$opt_w,
         "c=s" => \$opt_c, "critical=s"      => \$opt_c,
         "m=s" => \$opt_m, "method=s"        => \$opt_m,
         "i=s" => \$opt_i, "iface=s"         => \$opt_i,
-        "t=i" => \$opt_t, "timeout"         => \$opt_t,
+        "t=i" => \$opt_t, "timeout=i"       => \$opt_t,
         "P=s" => \$opt_P, "protocol=s"      => \$opt_P);
 
 #OIDs
