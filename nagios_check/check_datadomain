@@ -577,6 +577,8 @@ if ($opt_m eq "PSU") {
                     $oids->{replsource}.".".$_,
                     $oids->{repldest}.".".$_,
                     $oids->{replsyncedtime}.".".$_,
+                    $oids->{replprecompsent}.".".$_,
+                    $oids->{replpostcompsent}.".".$_,
                     $oids->{replprecompremain}.".".$_,
                     ) } @repl;
     $result = $session->get_request(@o);
@@ -605,6 +607,16 @@ if ($opt_m eq "PSU") {
                                         scalar(localtime($result->{$oids->{replsyncedtime}.".".$_})),
                                         human_bytes($result->{$oids->{replprecompremain}.".".$_}),
                                         ));
+        push(@{$perfdata}, sprintf(" '%s_precompsent'=%sB;;;; '%s_postcompsent'=%sB;;;; '%s_precompremain'=%sB;;;;  '%s_lastsynced'=%ss;;;; ",
+                                   $result->{$oids->{replsource}.".".$_},
+                                   $result->{$oids->{replprecompsent}.".".$_},
+                                   $result->{$oids->{replsource}.".".$_},
+                                   $result->{$oids->{replpostcompsent}.".".$_},
+                                   $result->{$oids->{replsource}.".".$_},
+                                   $result->{$oids->{replprecompremain}.".".$_},
+                                   $result->{$oids->{replsource}.".".$_},
+                                   time() - $result->{$oids->{replsyncedtime}.".".$_}
+                                  ));
     }
 } elsif ($opt_m eq "FSSPACE") {
     my $crit = $opt_c || "90";
