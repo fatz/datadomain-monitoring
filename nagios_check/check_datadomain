@@ -562,6 +562,7 @@ if ($opt_m eq "PSU") {
                     $oids->{replconntime}.".".$_,
                     $oids->{replsource}.".".$_,
                     $oids->{repldest}.".".$_,
+                    $oids->{replsyncedtime}.".".$_,
                     ) } @repl;
     $result = $session->get_request(@o);
 
@@ -579,13 +580,15 @@ if ($opt_m eq "PSU") {
         } else {
             $state = $ERRORS{'CRITICAL'};
         }
-        push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s, state: %s, status: %s, connected since: %s",
+        push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s, state: %s, status: %s, connected since: %s, last synced: %s",
                                         uc(state_reverse($state)),
                                         $result->{$oids->{replsource}.".".$_},
                                         $result->{$oids->{repldest}.".".$_},
                                         $replState->{$result->{$oids->{replstate}.".".$_}},
                                         $replStatus->{$result->{$oids->{replstatus}.".".$_}},
-                                        scalar(localtime($result->{$oids->{replconntime}.".".$_}))));
+                                        scalar(localtime($result->{$oids->{replconntime}.".".$_})),
+                                        scalar(localtime($result->{$oids->{replsyncedtime}.".".$_}))
+                                        ));
     }
 } elsif ($opt_m eq "FSSPACE") {
     my $crit = $opt_c || "90";
