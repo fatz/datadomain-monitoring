@@ -36,7 +36,7 @@ Port number (default: 161)
 
 =item -P, --protocol <protocol>
 
-SNMP protocol version [1,2c]
+SNMP protocol version [1,2c] (default: 2c)
 
 =item -t, --timeout <seconds>
 
@@ -185,7 +185,7 @@ $opt_C="public";
 $opt_H="";
 $opt_p=161;
 $opt_t="15";
-$opt_P="1";
+$opt_P="2c";
 
 Getopt::Long::Configure('bundling');
 GetOptions(
@@ -268,6 +268,12 @@ if (! $opt_H) {
         exit $ERRORS{'UNKNOWN'};
 }
 
+if ($opt_m eq "REPLICATION" and $opt_P eq "1") {
+    print "REPLICATION needs SNMP protocol version 2c\n";
+    print_usage();
+    exit $ERRORS{'UNKNOWN'};
+}
+
 sub print_usage () {
         print "Usage:\n";
         print "  $PROGNAME -H <hostname> [-C <COMMUNITY>] [-p <port>] [-P <snmp-version>] -m <method> ( FSSPACE [-w <warning % USED>] [-c <critical % USED>] | IFSTATE -i <interface id>) \n";
@@ -282,7 +288,7 @@ sub print_usage () {
         print "  -p, --port\n";
         print "     Port number (default: 161)\n";
         print "  -P, --protocol\n";
-        print "     SNMP protocol version [1,2c]\n";
+        print "     SNMP protocol version [1,2c]. Defaults: 2c\n";
         print "  -t, --timeout <seconds>\n";
         print "     SNMP timeout in seconds (default: 15)\n";
         print "  -m, --method\n";
@@ -296,7 +302,7 @@ sub print_usage () {
         print "             Defaults: -w 75 -c 90\n";
         print "         IFSTATE: Checks if the given interfaces are up. e.g.:-i 2,3\n";
         print "             do a snmpwalk on IF-MIB to get the interface ids\n";
-        print "         REPLICATION: state of all replication pairs\n";
+        print "         REPLICATION: state of all replication pairs (needs SNMP version >= 2c)\n";
         print "  -i, --iface\n";
         print "     comma seperated list of interface ids that should be up (use snmpwalk to get them)\n";
         print "  -w, --warning\n";
@@ -317,6 +323,14 @@ sub print_help () {
         print "  host  Give me some Host to work with\n";
         print "  <help>  This output\n";
         print "\n";
+}
+
+sub human_bytes {
+    # http://www.perlmonks.org/?node_id=378538
+    my( $size, $n ) =( shift, 0 );
+    ++$n and $size /= 1024 until $size < 1024;
+    return sprintf "%.2f %s",
+          $size, ( qw[ bytes KiB MiB GiB TiB ] )[ $n ];
 }
 
 my $powerModuleStatus = {
@@ -563,6 +577,7 @@ if ($opt_m eq "PSU") {
                     $oids->{replsource}.".".$_,
                     $oids->{repldest}.".".$_,
                     $oids->{replsyncedtime}.".".$_,
+                    $oids->{replprecompremain}.".".$_,
                     ) } @repl;
     $result = $session->get_request(@o);
 
@@ -580,14 +595,15 @@ if ($opt_m eq "PSU") {
         } else {
             $state = $ERRORS{'CRITICAL'};
         }
-        push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s, state: %s, status: %s, connected since: %s, last synced: %s",
+        push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s, state: %s, status: %s, connected since: %s, last synced: %s, remaining: %s",
                                         uc(state_reverse($state)),
                                         $result->{$oids->{replsource}.".".$_},
                                         $result->{$oids->{repldest}.".".$_},
                                         $replState->{$result->{$oids->{replstate}.".".$_}},
                                         $replStatus->{$result->{$oids->{replstatus}.".".$_}},
                                         scalar(localtime($result->{$oids->{replconntime}.".".$_})),
-                                        scalar(localtime($result->{$oids->{replsyncedtime}.".".$_}))
+                                        scalar(localtime($result->{$oids->{replsyncedtime}.".".$_})),
+                                        human_bytes($result->{$oids->{replprecompremain}.".".$_}),
                                         ));
     }
 } elsif ($opt_m eq "FSSPACE") {
