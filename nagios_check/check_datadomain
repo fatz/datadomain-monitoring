@@ -203,6 +203,7 @@ GetOptions(
 
 #OIDs
 $oids = {
+    ddversion   => ".1.3.6.1.4.1.19746.1.1.13.1.3",
     enclosures  => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.1",
     psu         => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.4",
     nvram       => ".1.3.6.1.4.1.19746.1.2.3.1.1.3.1",
@@ -363,10 +364,17 @@ my $diskState = {
 };
 
 my $replState = {
-    1 => 'initializing',
-    2 => 'normal',
-    3 => 'recovering',
-    4 => 'uninitialized',
+    'pre-5.4' => {
+        1 => 'enabled',
+        2 => 'disabled',
+        3 => 'disabledNeedsResync',
+    },
+    'post-5.4' => {
+        1 => 'initializing',
+        2 => 'normal',
+        3 => 'recovering',
+        4 => 'uninitialized',
+    },
 };
 
 my $replStatus = {
@@ -570,6 +578,20 @@ if ($opt_m eq "PSU") {
     my $req = $oids->{'replctxt'};
     my $result = $session->get_table($req);
 
+    my $ddver = $session->get_request($oids->{ddversion});
+    my $replStateTable;
+    # Version 5.1 doesn't have a systemVersion value. Assuming older as well.
+    # Version 5.2 have the systemVersion value but still the old replicationState behavior
+    # Version 5.3 doesn't seem to exists, assuming the same as 5.2
+    # Version 5.4 introduces the new behavior
+    if ( $ddver->{$oids->{ddversion}} eq 'noSuchObject' ||
+         $ddver->{$oids->{ddversion}} =~ m'^5\.2\.' ||
+         $ddver->{$oids->{ddversion}} =~ m'^5\.3\.' ) {
+        $replStateTable = 'pre-5.4';
+    } else {
+        $replStateTable = 'post-5.4';
+    }
+
     my @repl = values %$result;
     my @o = map { ( $oids->{replstate}.".".$_,
                     $oids->{replstatus}.".".$_,
@@ -585,7 +607,8 @@ if ($opt_m eq "PSU") {
 
     foreach (@repl) {
         if ($result->{$oids->{replstatus}.".".$_} == "1") {
-            if ($result->{$oids->{replstate}.".".$_} == "2") {
+            if ($replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}} eq "enabled" ||
+                $replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}} eq "normal" ) {
                 $state = $ERRORS{'OK'};
             } else {
                 $state = $ERRORS{'CRITICAL'};
@@ -601,7 +624,7 @@ if ($opt_m eq "PSU") {
                                         uc(state_reverse($state)),
                                         $result->{$oids->{replsource}.".".$_},
                                         $result->{$oids->{repldest}.".".$_},
-                                        $replState->{$result->{$oids->{replstate}.".".$_}},
+                                        $replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}},
                                         $replStatus->{$result->{$oids->{replstatus}.".".$_}},
                                         scalar(localtime($result->{$oids->{replconntime}.".".$_})),
                                         scalar(localtime($result->{$oids->{replsyncedtime}.".".$_})),
