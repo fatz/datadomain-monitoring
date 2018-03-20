@@ -681,6 +681,7 @@ if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}}
     if (defined $perfdata) {
         print " | ";
         print join("", @{$perfdata});
+        print "\n";
     }
     exit $ERRORS{'CRITICAL'};
 } elsif (defined $out->{$ERRORS{'WARNING'}} && scalar @{$out->{$ERRORS{'WARNING'}}} > 0) {
@@ -691,6 +692,7 @@ if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}}
     if (defined $perfdata) {
         print " | ";
         print join("", @{$perfdata});
+        print "\n";
     }
     exit $ERRORS{'WARNING'};
 } elsif ($out->{$ERRORS{'UNKNOWN'}}) {
@@ -700,6 +702,7 @@ if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}}
     if (defined $perfdata) {
         print " | ";
         print join("", @{$perfdata});
+        print "\n";
     }
     exit $ERRORS{'UNKNOWN'};
 } else {
@@ -708,6 +711,7 @@ if (defined $out->{$ERRORS{'CRITICAL'}} && scalar @{$out->{$ERRORS{'CRITICAL'}}}
     if (defined $perfdata) {
         print " | ";
         print join("", @{$perfdata});
+        print "\n";
     }
     exit $ERRORS{'OK'};
 }
