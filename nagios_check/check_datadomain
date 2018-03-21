@@ -601,6 +601,7 @@ if ($opt_m eq "PSU") {
                     $oids->{replsyncedtime}.".".$_,
                     $oids->{replprecompsent}.".".$_,
                     $oids->{replpostcompsent}.".".$_,
+                    $oids->{replpostcomprcv}.".".$_,
                     $oids->{replprecompremain}.".".$_,
                     ) } @repl;
     $result = $session->get_request(@o);
@@ -630,11 +631,13 @@ if ($opt_m eq "PSU") {
                                         scalar(localtime($result->{$oids->{replsyncedtime}.".".$_})),
                                         human_bytes($result->{$oids->{replprecompremain}.".".$_}),
                                         ));
-        push(@{$perfdata}, sprintf(" '%s_precompsent'=%sB;;;; '%s_postcompsent'=%sB;;;; '%s_precompremain'=%sB;;;;  '%s_lastsynced'=%ss;;;; ",
+        push(@{$perfdata}, sprintf(" '%s_precompsent'=%sc;;;; '%s_postcompsent'=%sc;;;; '%s_postcomprcv'=%sc;;;; '%s_precompremain'=%sB;;;;  '%s_lastsynced'=%ss;;;; ",
                                    $result->{$oids->{replsource}.".".$_},
                                    $result->{$oids->{replprecompsent}.".".$_},
                                    $result->{$oids->{replsource}.".".$_},
                                    $result->{$oids->{replpostcompsent}.".".$_},
+                                   $result->{$oids->{replsource}.".".$_},
+                                   $result->{$oids->{replpostcomprcv}.".".$_},
                                    $result->{$oids->{replsource}.".".$_},
                                    $result->{$oids->{replprecompremain}.".".$_},
                                    $result->{$oids->{replsource}.".".$_},
