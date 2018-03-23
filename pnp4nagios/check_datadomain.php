@@ -77,8 +77,8 @@ foreach ($DS as $i) {
                 $def[$i] .= rrd::hrule( $crit, "#ff0000", "Critical $crit hours\\n" );
         }
     } elseif (preg_match('/_perc$/',$NAME[$i])) {
-        $ds_name[$i]  = "FS space usage for $hostname / ";
-        $ds_name[$i] .= substr($NAME[$i],0,strlen($NAME[$i]) - 5);
+        $ds_name[$i]  = "FS space usage for ";
+        $ds_name[$i] .= substr($LABEL[$i],0,strlen($LABEL[$i]) - 5);
         $opt[$i] = " --vertical-label \"percent\" --title \"".$ds_name[$i]."\" ";
         $opt[$i] .= " -l 0 -u 100 ";
         $def[$i] = "DEF:ds1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
