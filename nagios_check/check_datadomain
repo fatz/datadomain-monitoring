@@ -307,9 +307,13 @@ sub print_usage () {
         print "  -i, --iface\n";
         print "     comma seperated list of interface ids that should be up (use snmpwalk to get them)\n";
         print "  -w, --warning\n";
-        print "     warning filesystem space usage in %\n";
+        print "     warning trigger value:\n";
+        print "     - FSSPACE:     filesystem space usage in % (default: 75%)\n";
+        print "     - REPLICATION: hours since last synced (default: 24 hours)\n";
         print "  -c, --critical\n";
-        print "     critical filesystem space usage in %\n";
+        print "     critical trigger value:\n";
+        print "     - FSSPACE:     filesystem space usage in % (default: 90%)\n";
+        print "     - REPLICATION: hours since last synced (default: 48 hours)\n";
         print "  -h, --help\n";
         print "     Print detailed help screen\n";
         print "  -V, --version\n";
@@ -574,7 +578,10 @@ if ($opt_m eq "PSU") {
         }
     }
 } elsif ($opt_m eq "REPLICATION") {
+    my $warn = $opt_w || "24";
+    my $crit = $opt_c || "48";
     my $state;
+    my $reason;
     my $req = $oids->{'replctxt'};
     my $result = $session->get_table($req);
 
@@ -606,25 +613,39 @@ if ($opt_m eq "PSU") {
                     ) } @repl;
     $result = $session->get_request(@o);
 
+    my $syncedhours;
     foreach (@repl) {
+        $reason = "";
         if ($result->{$oids->{replstatus}.".".$_} == "1") {
             if ($replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}} eq "enabled" ||
                 $replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}} eq "normal" ) {
                 $state = $ERRORS{'OK'};
             } else {
                 $state = $ERRORS{'CRITICAL'};
+                $reason = "replication pair is not enabled or in a 'normal' state, ";
             }
         } elsif ($result->{$oids->{replstatus}.".".$_} == "3" ||
                  $result->{$oids->{replstatus}.".".$_} == "4" ||
                  $result->{$oids->{replstatus}.".".$_} == "6") {
             $state = $ERRORS{'WARNING'};
+            $reason = "status is '".$replStatus->{$result->{$oids->{replstatus}.".".$_}}."', ";
         } else {
             $state = $ERRORS{'CRITICAL'};
+            $reason = "status is '".$replStatus->{$result->{$oids->{replstatus}.".".$_}}."', ";
         }
-        push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s, state: %s, status: %s, connected since: %s, last synced: %s, remaining: %s",
+        $syncedhours = sprintf("%.2f", (time() - $result->{$oids->{replsyncedtime}.".".$_}) / 3600);
+        if ($syncedhours > $crit) {
+            $state = $ERRORS{'CRITICAL'};
+            $reason = "not synced since $syncedhours hours, ";
+        } elsif ($syncedhours > $warn) {
+            $state = $ERRORS{'WARNING'};
+            $reason = "not synced since $syncedhours hours, ";
+        }
+        push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s: %sstate: %s, status: %s, connected since: %s, last synced: %s, remaining: %s",
                                         uc(state_reverse($state)),
                                         $result->{$oids->{replsource}.".".$_},
                                         $result->{$oids->{repldest}.".".$_},
+                                        $reason,
                                         $replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}},
                                         $replStatus->{$result->{$oids->{replstatus}.".".$_}},
                                         scalar(localtime($result->{$oids->{replconntime}.".".$_})),
