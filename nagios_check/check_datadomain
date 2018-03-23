@@ -203,6 +203,7 @@ GetOptions(
 
 #OIDs
 $oids = {
+    sysname     => ".1.3.6.1.2.1.1.5.0",
     ddversion   => ".1.3.6.1.4.1.19746.1.1.13.1.3",
     enclosures  => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.1",
     psu         => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.4",
@@ -586,6 +587,7 @@ if ($opt_m eq "PSU") {
     my $result = $session->get_table($req);
 
     my $ddver = $session->get_request($oids->{ddversion});
+    my $sysname = $session->get_request($oids->{sysname})->{$oids->{sysname}};
     my $replStateTable;
     # Version 5.1 doesn't have a systemVersion value. Assuming older as well.
     # Version 5.2 have the systemVersion value but still the old replicationState behavior
@@ -614,6 +616,7 @@ if ($opt_m eq "PSU") {
     $result = $session->get_request(@o);
 
     my $syncedhours;
+    my $perfname;
     foreach (@repl) {
         $reason = "";
         if ($result->{$oids->{replstatus}.".".$_} == "1") {
@@ -641,6 +644,11 @@ if ($opt_m eq "PSU") {
             $state = $ERRORS{'WARNING'};
             $reason = "not synced since $syncedhours hours, ";
         }
+        if (index($result->{$oids->{replsource}.".".$_}, $sysname) >= 0) {
+            $perfname = $result->{$oids->{replsource}.".".$_};
+        } elsif (index($result->{$oids->{repldest}.".".$_}, $sysname) >= 0) {
+            $perfname = $result->{$oids->{repldest}.".".$_};
+        }
         push(@{$out->{$state}}, sprintf("%s - Replication: %s -> %s: %sstate: %s, status: %s, connected since: %s, last synced: %s, remaining: %s",
                                         uc(state_reverse($state)),
                                         $result->{$oids->{replsource}.".".$_},
@@ -652,17 +660,19 @@ if ($opt_m eq "PSU") {
                                         scalar(localtime($result->{$oids->{replsyncedtime}.".".$_})),
                                         human_bytes($result->{$oids->{replprecompremain}.".".$_}),
                                         ));
-        push(@{$perfdata}, sprintf(" '%s_precompsent'=%sc;;;; '%s_postcompsent'=%sc;;;; '%s_postcomprcv'=%sc;;;; '%s_precompremain'=%sB;;;;  '%s_lastsynced'=%ss;;;; ",
-                                   $result->{$oids->{replsource}.".".$_},
+        push(@{$perfdata}, sprintf(" '%s_precompsent'=%sc;;;; '%s_postcompsent'=%sc;;;; '%s_postcomprcv'=%sc;;;; '%s_precompremain'=%sB;;;;  '%s_lastsynced'=%ss;%d;%d;; ",
+                                   $perfname,
                                    $result->{$oids->{replprecompsent}.".".$_},
-                                   $result->{$oids->{replsource}.".".$_},
+                                   $perfname,
                                    $result->{$oids->{replpostcompsent}.".".$_},
-                                   $result->{$oids->{replsource}.".".$_},
+                                   $perfname,
                                    $result->{$oids->{replpostcomprcv}.".".$_},
-                                   $result->{$oids->{replsource}.".".$_},
+                                   $perfname,
                                    $result->{$oids->{replprecompremain}.".".$_},
-                                   $result->{$oids->{replsource}.".".$_},
-                                   time() - $result->{$oids->{replsyncedtime}.".".$_}
+                                   $perfname,
+                                   time() - $result->{$oids->{replsyncedtime}.".".$_},
+                                   $warn * 3600,
+                                   $crit * 3600
                                   ));
     }
 } elsif ($opt_m eq "FSSPACE") {
