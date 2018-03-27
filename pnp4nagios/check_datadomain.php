@@ -4,14 +4,14 @@
 # Plugin: check_datadomain.pl
 #
 
-foreach ($DS as $i) {
+foreach ($DS as $i => $val) {
     if (preg_match('/_precompsent$/',$NAME[$i])) {
         $ds_name[$i]  = "Pre-compression Sent for ";
         $label = substr($LABEL[$i], 0, strlen($LABEL[$i]) - 12);
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
         $opt[$i] = " --vertical-label \"Bytes/s\" --title \"".$title."\" ";
-        $def[$i] = "DEF:var1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
+        $def[$i] = "DEF:var1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= rrd::gradient("var1", "ff3333", "ffaaaa", "traffic") ;
         $def[$i] .= rrd::line1("var1", "#880000") ;
         $def[$i] .= "GPRINT:var1:LAST:\"%7.2lf %SB/s last\" " ;
@@ -23,7 +23,7 @@ foreach ($DS as $i) {
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
         $opt[$i] = " --vertical-label \"Bytes/s\" --title \"".$title."\" ";
-        $def[$i] = "DEF:var1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
+        $def[$i] = "DEF:var1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= rrd::gradient("var1", "ff3333", "ffaaaa", "traffic") ;
         $def[$i] .= rrd::line1("var1", "#880000") ;
         $def[$i] .= "GPRINT:var1:LAST:\"%7.2lf %SB/s last\" " ;
@@ -35,7 +35,7 @@ foreach ($DS as $i) {
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
         $opt[$i] = " --vertical-label \"Bytes/s\" --title \"".$title."\" ";
-        $def[$i] = "DEF:var1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
+        $def[$i] = "DEF:var1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= rrd::gradient("var1", "3333ff", "aaaaff", "traffic") ;
         $def[$i] .= rrd::line1("var1", "#000088") ;
         $def[$i] .= "GPRINT:var1:LAST:\"%7.2lf %SB/s last\" " ;
@@ -47,7 +47,7 @@ foreach ($DS as $i) {
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
         $opt[$i] = " --vertical-label \"Bytes\" -l 0 -b 1024 --title \"".$title."\" ";
-        $def[$i] = "DEF:var1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
+        $def[$i] = "DEF:var1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= rrd::gradient("var1", "aa00ff", "aa88ff", "remaining") ;
         $def[$i] .= rrd::line1("var1", "#330088") ;
         $def[$i] .= "GPRINT:var1:LAST:\"%7.2lf %SB last\" " ;
@@ -59,7 +59,7 @@ foreach ($DS as $i) {
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
         $opt[$i] = " --vertical-label \"hours ago\" --title \"".$title."\" ";
-        $def[$i] = "DEF:ds1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
+        $def[$i] = "DEF:ds1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= "CDEF:var1=ds1,3600,/ " ;
         $def[$i] .= rrd::gradient("var1", "00aa00", "88ff88", "last synced") ;
         $def[$i] .= rrd::line1("var1", "#008800") ;
@@ -81,7 +81,7 @@ foreach ($DS as $i) {
         $ds_name[$i] .= substr($LABEL[$i],0,strlen($LABEL[$i]) - 5);
         $opt[$i] = " --vertical-label \"percent\" --title \"".$ds_name[$i]."\" ";
         $opt[$i] .= " -l 0 -u 100 ";
-        $def[$i] = "DEF:ds1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
+        $def[$i] = "DEF:ds1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= "CDEF:var1=ds1 " ;
         $def[$i] .= rrd::gradient("var1", "#33aa33", "#88ff88", "FS usage") ;
         $def[$i] .= rrd::line1("var1", "#008800") ;
@@ -102,7 +102,7 @@ foreach ($DS as $i) {
         $ds_name[$i]  = "Free space for ";
         $ds_name[$i] .= substr($LABEL[$i],0,strlen($LABEL[$i]) - 6);
         $opt[$i] = " --vertical-label \"bytes\" --title \"".$ds_name[$i]."\" ";
-        $def[$i] = "DEF:ds1=$RRDFILE[1]:$DS[$i]:AVERAGE " ;
+        $def[$i] = "DEF:ds1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= "CDEF:var1=ds1,1024,1024,1024,*,*,* " ;
         $def[$i] .= rrd::gradient("var1", "#b6b6b6", "#d6d6d6", "Free space") ;
         $def[$i] .= rrd::line1("var1", "#003300") ;
