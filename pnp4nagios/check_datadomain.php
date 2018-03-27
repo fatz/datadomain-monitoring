@@ -10,7 +10,7 @@ foreach ($DS as $i => $val) {
         $label = substr($LABEL[$i], 0, strlen($LABEL[$i]) - 12);
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
-        $opt[$i] = " --vertical-label \"Bytes/s\" --title \"".$title."\" ";
+        $opt[$i] = " --vertical-label \"Bytes/s\" -b 1024 --title \"".$title."\" ";
         $def[$i] = "DEF:var1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= rrd::gradient("var1", "ff3333", "ffaaaa", "traffic") ;
         $def[$i] .= rrd::line1("var1", "#880000") ;
@@ -22,7 +22,7 @@ foreach ($DS as $i => $val) {
         $label = substr($LABEL[$i], 0, strlen($LABEL[$i]) - 13);
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
-        $opt[$i] = " --vertical-label \"Bytes/s\" --title \"".$title."\" ";
+        $opt[$i] = " --vertical-label \"Bytes/s\" -b 1024 --title \"".$title."\" ";
         $def[$i] = "DEF:var1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= rrd::gradient("var1", "ff3333", "ffaaaa", "traffic") ;
         $def[$i] .= rrd::line1("var1", "#880000") ;
@@ -34,7 +34,7 @@ foreach ($DS as $i => $val) {
         $label = substr($LABEL[$i], 0, strlen($LABEL[$i]) - 12);
         $title = $ds_name[$i].preg_replace(',^.*/([^/]*)$,', '$1', $label);
         $ds_name[$i] .= $label;
-        $opt[$i] = " --vertical-label \"Bytes/s\" --title \"".$title."\" ";
+        $opt[$i] = " --vertical-label \"Bytes/s\" -b 1024 --title \"".$title."\" ";
         $def[$i] = "DEF:var1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= rrd::gradient("var1", "3333ff", "aaaaff", "traffic") ;
         $def[$i] .= rrd::line1("var1", "#000088") ;
@@ -101,7 +101,7 @@ foreach ($DS as $i => $val) {
     } elseif (preg_match('/_avail$/',$NAME[$i])) {
         $ds_name[$i]  = "Free space for ";
         $ds_name[$i] .= substr($LABEL[$i],0,strlen($LABEL[$i]) - 6);
-        $opt[$i] = " --vertical-label \"bytes\" --title \"".$ds_name[$i]."\" ";
+        $opt[$i] = " --vertical-label \"bytes\" -b 1024 --title \"".$ds_name[$i]."\" ";
         $def[$i] = "DEF:ds1=$RRDFILE[$i]:$DS[$i]:AVERAGE " ;
         $def[$i] .= "CDEF:var1=ds1,1024,1024,1024,*,*,* " ;
         $def[$i] .= rrd::gradient("var1", "#b6b6b6", "#d6d6d6", "Free space") ;
