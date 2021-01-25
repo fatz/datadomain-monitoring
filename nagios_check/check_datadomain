@@ -204,7 +204,7 @@ GetOptions(
 #OIDs
 $oids = {
     sysname     => ".1.3.6.1.2.1.1.5.0",
-    ddversion   => ".1.3.6.1.4.1.19746.1.1.13.1.3",
+    ddversion   => ".1.3.6.1.4.1.19746.1.13.1.3.0",
     enclosures  => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.1",
     psu         => ".1.3.6.1.4.1.19746.1.1.1.1.1.1.4",
     nvram       => ".1.3.6.1.4.1.19746.1.2.3.1.1.3.1",
@@ -217,7 +217,7 @@ $oids = {
     ifname      => ".1.3.6.1.2.1.31.1.1.1.1",
     ifadstatus  => ".1.3.6.1.2.1.2.2.1.7",
     ifopstatus  => ".1.3.6.1.2.1.2.2.1.8",
-    fsid        => ".1.3.6.1.4.1.19746.1.3.2.1.1.1",
+    fsid        => ".1.3.6.1.4.1.19746.1.3.2.1.1.2",
     fsname      => ".1.3.6.1.4.1.19746.1.3.2.1.1.3",
     fssize      => ".1.3.6.1.4.1.19746.1.3.2.1.1.4",
     fsused      => ".1.3.6.1.4.1.19746.1.3.2.1.1.5",
@@ -619,7 +619,8 @@ if ($opt_m eq "PSU") {
     my $perfname;
     foreach (@repl) {
         $reason = "";
-        if ($result->{$oids->{replstatus}.".".$_} == "1") {
+        if ($result->{$oids->{replstatus}.".".$_} == "1" ||
+            $result->{$oids->{replstatus}.".".$_} == "6") {
             if ($replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}} eq "enabled" ||
                 $replState->{$replStateTable}->{$result->{$oids->{replstate}.".".$_}} eq "normal" ) {
                 $state = $ERRORS{'OK'};
@@ -628,8 +629,7 @@ if ($opt_m eq "PSU") {
                 $reason = "replication pair is not enabled or in a 'normal' state, ";
             }
         } elsif ($result->{$oids->{replstatus}.".".$_} == "3" ||
-                 $result->{$oids->{replstatus}.".".$_} == "4" ||
-                 $result->{$oids->{replstatus}.".".$_} == "6") {
+                 $result->{$oids->{replstatus}.".".$_} == "4") {
             $state = $ERRORS{'WARNING'};
             $reason = "status is '".$replStatus->{$result->{$oids->{replstatus}.".".$_}}."', ";
         } else {
